@@ -156,6 +156,19 @@ class ClientSimulationEngine {
     this.running = true;
   }
 
+  public applyControl(action: string, speed?: number) {
+    if (action === 'start') {
+      this.running = true;
+    } else if (action === 'pause') {
+      this.running = false;
+    } else if (action === 'reset') {
+      this.reset();
+    }
+    if (typeof speed === 'number' && speed > 0) {
+      this.simSpeed = speed;
+    }
+  }
+
   public tick(): TelemetryState {
     if (this.running) {
       this.step += 1;

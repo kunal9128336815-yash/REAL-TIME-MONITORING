@@ -43,6 +43,8 @@ export const DashboardLayout: React.FC = () => {
   const {
     telemetry,
     backendConnected,
+    isPiConnected,
+    piStatus,
     operatingMode,
     toggleOperatingMode,
     triggerScenario,
@@ -563,11 +565,19 @@ export const DashboardLayout: React.FC = () => {
           </div>
 
           <div className="hidden lg:flex items-center space-x-2 text-xs font-sans text-slate-600 shrink-0">
-            <span className="text-slate-500 font-medium">BACKEND:</span>
+            <span className="text-slate-500 font-medium">SOURCE:</span>
             <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
-              backendConnected ? 'bg-emerald-50 text-emerald-700 border border-emerald-300' : 'bg-amber-50 text-amber-800 border border-amber-300'
+              isPiConnected
+                ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                : backendConnected
+                ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                : 'bg-amber-50 text-amber-800 border border-amber-300'
             }`}>
-              {backendConnected ? 'FASTAPI CONNECTED' : 'STANDALONE SIM'}
+              {isPiConnected
+                ? `PI LIVE (192.168.137.30)`
+                : backendConnected
+                ? 'FASTAPI CONNECTED'
+                : 'STANDALONE SIM'}
             </span>
           </div>
         </div>

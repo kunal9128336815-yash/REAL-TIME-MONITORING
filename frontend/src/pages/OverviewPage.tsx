@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTelemetryContext } from '../context/TelemetryContext';
 import { wsClient } from '../services/websocket';
@@ -11,14 +11,38 @@ import {
   ChevronRight,
   Maximize2,
   Cpu,
-  RefreshCw
+  RefreshCw,
+  Settings,
+  Radio
 } from 'lucide-react';
 import { GpsTrackingMap } from '../components/dashboard/GpsTrackingMap';
 import { VehicleDigitalTwin } from '../components/dashboard/VehicleDigitalTwin';
+import { PiConnectionModal } from '../components/modals/PiConnectionModal';
 
 export const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
-  const { telemetry, alerts, backendConnected } = useTelemetryContext();
+  const {
+    telemetry,
+    alerts,
+    backendConnected,
+    isPiConnected,
+    piStatus,
+    piUrl,
+    setPiUrl,
+    checkPiConnection
+  } = useTelemetryContext();
+
+  const [isPiModalOpen, setIsPiModalOpen] = useState(false);
+  const [isPingingPi, setIsPingingPi] = useState(false);
+
+  const handleQuickPing = async () => {
+    setIsPingingPi(true);
+    try {
+      await checkPiConnection();
+    } finally {
+      setIsPingingPi(false);
+    }
+  };
 
   const getRiskBadgeColor = (level: string) => {
     switch (level) {
@@ -53,9 +77,13 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* TOP-RIGHT: RASPBERRY PI 4 HARDWARE STATUS WIDGET */}
-        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 p-2 sm:p-2.5 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200 p-2 sm:p-2.5 rounded-xl shadow-2xs">
           <div className={`p-2 rounded-lg border ${
-            backendConnected ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-rose-50 border-rose-300 text-rose-700'
+            isPiConnected
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+              : backendConnected
+              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              : 'bg-rose-50 border-rose-300 text-rose-700'
           }`}>
             <Cpu className="w-5 h-5" />
           </div>
@@ -66,34 +94,74 @@ export const OverviewPage: React.FC = () => {
                 Raspberry Pi 4 Edge:
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center space-x-1.5 ${
-                backendConnected
+                isPiConnected
                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : backendConnected
+                  ? 'bg-blue-100 text-blue-800 border border-blue-300'
                   : 'bg-rose-100 text-rose-800 border border-rose-300'
               }`}>
-                <span className={`w-2 h-2 rounded-full ${backendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                <span>{backendConnected ? 'PI IS ON (ONLINE)' : 'PI IS OFF (OFFLINE)'}</span>
+                <span className={`w-2 h-2 rounded-full ${
+                  isPiConnected
+                    ? 'bg-emerald-500 animate-pulse'
+                    : backendConnected
+                    ? 'bg-blue-500'
+                    : 'bg-rose-500'
+                }`} />
+                <span>
+                  {isPiConnected
+                    ? 'PI IS ON (ONLINE)'
+                    : backendConnected
+                    ? 'FASTAPI LINKED'
+                    : 'PI IS OFF (OFFLINE)'}
+                </span>
               </span>
             </div>
 
             <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
-              <span className="font-mono">{backendConnected ? 'Host: 12.10.5.5:8000' : 'Host: Standby Sim Engine'}</span>
+              <span className="font-mono font-medium text-slate-700" title={piUrl}>
+                {isPiConnected
+                  ? `Pi: 192.168.137.30:5000`
+                  : 'Target: 192.168.137.30:5000/data'}
+              </span>
               <span>&bull;</span>
-              <span className={backendConnected ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>
-                {backendConnected ? '20Hz Active Telemetry' : 'Local Fallback'}
+              <span className={isPiConnected ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>
+                {isPiConnected
+                  ? `${piStatus.lastPingMs || '<30'}ms (${piStatus.sampleCount} pkts)`
+                  : 'Standby Simulation'}
               </span>
             </div>
           </div>
 
-          <button
-            onClick={() => wsClient.connect()}
-            title="Ping / Re-test Raspberry Pi Connection"
-            className="ml-auto px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors shrink-0"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-            <span className="hidden sm:inline">Check Pi</span>
-          </button>
+          <div className="flex items-center space-x-1.5 ml-auto shrink-0">
+            <button
+              onClick={handleQuickPing}
+              disabled={isPingingPi}
+              title="Ping / Re-test Raspberry Pi Connection"
+              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold flex items-center space-x-1 shadow-2xs transition-colors shrink-0 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isPingingPi ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isPingingPi ? 'Pinging...' : 'Ping Pi'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsPiModalOpen(true)}
+              title="Configure Raspberry Pi Endpoint Settings"
+              className="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 hover:text-blue-600 transition-colors shadow-2xs"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Raspberry Pi Bridge Configuration Modal */}
+      <PiConnectionModal
+        isOpen={isPiModalOpen}
+        onClose={() => setIsPiModalOpen(false)}
+        status={piStatus}
+        onUpdateUrl={setPiUrl}
+        onCheckConnection={checkPiConnection}
+      />
 
       {/* 5 Clean KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">

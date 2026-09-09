@@ -8,5 +8,12 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    proxy: {
+      '/pi-proxy': {
+        target: 'http://192.168.137.30:5000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pi-proxy/, '/data'),
+      },
+    },
   },
 })

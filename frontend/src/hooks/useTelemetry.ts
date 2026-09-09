@@ -2,19 +2,61 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TelemetryState, ScenarioType, HistoricalDataPoint, AlertRecord } from '../types';
 import { clientSimulator } from '../services/simulator';
 import { wsClient } from '../services/websocket';
+import { piHardwareClient, PiConnectionStatus } from '../services/piHardwareClient';
 import { setBackendScenario, controlBackendSimulation, startBackendGuidedDemo, setOperatingMode, fetchAlerts } from '../services/api';
 
 export function useTelemetry() {
   const [telemetry, setTelemetry] = useState<TelemetryState>(() => clientSimulator.tick());
   const [backendConnected, setBackendConnected] = useState<boolean>(false);
+  const [piStatus, setPiStatus] = useState<PiConnectionStatus>(() => piHardwareClient.getStatus());
   const [operatingMode, setOperatingModeState] = useState<'DEMO_MODE' | 'LIVE_HARDWARE'>('DEMO_MODE');
   const [history, setHistory] = useState<HistoricalDataPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
 
   const lastRiskRef = useRef<string>('SAFE');
   const lastScenarioRef = useRef<string>('NORMAL_OPERATION');
+  const isPiActiveRef = useRef<boolean>(false);
 
-  // Connect WebSocket on mount
+  // 1. Connect Raspberry Pi Hardware Poller on Mount (http://192.168.137.30:5000/data)
+  useEffect(() => {
+    piHardwareClient.start();
+
+    const unsubPi = piHardwareClient.subscribe((connected, piTelemetry) => {
+      isPiActiveRef.current = connected;
+      setPiStatus(piHardwareClient.getStatus());
+
+      if (connected && piTelemetry) {
+        setTelemetry(piTelemetry);
+        recordHistory(piTelemetry);
+
+        // Check if risk transitioned to add dynamic alert
+        if (piTelemetry.risk.risk_level !== lastRiskRef.current) {
+          if (piTelemetry.risk.risk_level === 'CRITICAL' || piTelemetry.risk.risk_level === 'WARNING') {
+            const newAlert: AlertRecord = {
+              id: Date.now(),
+              timestamp: piTelemetry.timestamp,
+              severity: piTelemetry.risk.risk_level,
+              message: piTelemetry.risk.hazard_summary,
+              category: 'COLLISION_RISK',
+              sms_sent: piTelemetry.risk.emergency_sms_required,
+              sms_details: piTelemetry.risk.emergency_sms_required
+                ? `4G SMS dispatched via ${piTelemetry.gsm.carrier} to Mine Safety Control`
+                : undefined,
+            };
+            setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
+          }
+          lastRiskRef.current = piTelemetry.risk.risk_level;
+        }
+      }
+    });
+
+    return () => {
+      unsubPi();
+      piHardwareClient.stop();
+    };
+  }, []);
+
+  // 2. Connect WebSocket to FastAPI backend on mount
   useEffect(() => {
     wsClient.connect();
 
@@ -23,8 +65,11 @@ export function useTelemetry() {
     });
 
     const unsubData = wsClient.subscribeData((data) => {
-      setTelemetry(data);
-      recordHistory(data);
+      // If direct Raspberry Pi hardware is not streaming, use backend WebSocket
+      if (!isPiActiveRef.current) {
+        setTelemetry(data);
+        recordHistory(data);
+      }
     });
 
     // Initial alerts
@@ -36,11 +81,13 @@ export function useTelemetry() {
     };
   }, []);
 
-  // Standalone client loop (runs when backend is disconnected or in standalone mode)
+  // 3. Standalone client loop (runs ONLY when neither Pi nor FastAPI backend is connected)
   useEffect(() => {
-    if (backendConnected) return;
+    if (backendConnected || piStatus.connected) return;
 
     const interval = window.setInterval(() => {
+      if (isPiActiveRef.current) return;
+
       const nextState = clientSimulator.tick();
       setTelemetry(nextState);
       recordHistory(nextState);
@@ -55,80 +102,81 @@ export function useTelemetry() {
             message: nextState.risk.hazard_summary,
             category: 'COLLISION_RISK',
             sms_sent: nextState.risk.emergency_sms_required,
-            sms_details: nextState.risk.emergency_sms_required 
-              ? `4G SMS dispatched via ${nextState.gsm.carrier} to Mine Safety Control` 
+            sms_details: nextState.risk.emergency_sms_required
+              ? `4G SMS dispatched via ${nextState.gsm.carrier} to Mine Safety Control`
               : undefined,
           };
-          setAlerts(prev => [newAlert, ...prev.slice(0, 24)]);
+          setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
         }
         lastRiskRef.current = nextState.risk.risk_level;
       }
     }, 400);
 
     return () => clearInterval(interval);
-  }, [backendConnected]);
+  }, [backendConnected, piStatus.connected]);
 
-  const recordHistory = useCallback((state: TelemetryState) => {
-    const riskMap: Record<string, number> = {
-      SAFE: 0,
-      CAUTION: 1,
-      WARNING: 2,
-      CRITICAL: 3,
-    };
-
+  // Keep a running buffer of the last 60 seconds (at 1-second cadence)
+  const recordHistory = (state: TelemetryState) => {
     const point: HistoricalDataPoint = {
-      time: state.timestamp,
+      time: new Date().toLocaleTimeString('en-US', { hour12: false }),
       speed: state.gps.speed_kmh,
-      ttc: state.risk.ttc_seconds ?? 10.0,
-      visibility: state.visibility.index_percent,
       front_distance: state.ultrasonic.front,
-      risk_numeric: riskMap[state.risk.risk_level] ?? 0,
+      ttc: state.risk.ttc_seconds ?? 0,
+      visibility: state.visibility.index_percent,
+      risk_numeric:
+        state.risk.risk_level === 'CRITICAL'
+          ? 3
+          : state.risk.risk_level === 'WARNING'
+          ? 2
+          : state.risk.risk_level === 'CAUTION'
+          ? 1
+          : 0,
     };
 
     setHistory((prev) => {
       const updated = [...prev, point];
-      return updated.length > 30 ? updated.slice(updated.length - 30) : updated;
+      return updated.slice(-60);
     });
-  }, []);
+  };
 
-  const triggerScenario = useCallback((scenario: ScenarioType) => {
-    clientSimulator.setScenario(scenario);
-    lastScenarioRef.current = scenario;
+  const triggerScenario = useCallback(
+    async (scenario: ScenarioType) => {
+      lastScenarioRef.current = scenario;
+      if (backendConnected) {
+        await setBackendScenario(scenario);
+      } else {
+        clientSimulator.setScenario(scenario);
+      }
+    },
+    [backendConnected]
+  );
+
+  const triggerGuidedDemo = useCallback(async () => {
     if (backendConnected) {
-      setBackendScenario(scenario);
-      wsClient.send({ type: 'SET_SCENARIO', scenario });
+      await startBackendGuidedDemo();
+    } else {
+      clientSimulator.startGuidedDemo();
     }
   }, [backendConnected]);
 
-  const triggerGuidedDemo = useCallback(() => {
-    clientSimulator.startGuidedDemo();
-    if (backendConnected) {
-      startBackendGuidedDemo();
-      wsClient.send({ type: 'START_GUIDED_DEMO' });
-    }
-  }, [backendConnected]);
+  const handleControl = useCallback(
+    async (action: string, speed?: number) => {
+      if (backendConnected) {
+        await controlBackendSimulation(action, speed);
+      } else {
+        clientSimulator.applyControl(action, speed);
+      }
+    },
+    [backendConnected]
+  );
 
-  const handleControl = useCallback((action: 'start' | 'pause' | 'reset', speed: number = 1.0) => {
-    if (action === 'start') {
-      clientSimulator.setRunning(true);
-    } else if (action === 'pause') {
-      clientSimulator.setRunning(false);
-    } else if (action === 'reset') {
-      clientSimulator.reset();
-    }
-    clientSimulator.setSimSpeed(speed);
-
+  const toggleOperatingMode = useCallback(async (targetMode?: 'DEMO_MODE' | 'LIVE_HARDWARE') => {
+    const nextMode = targetMode || (operatingMode === 'DEMO_MODE' ? 'LIVE_HARDWARE' : 'DEMO_MODE');
+    setOperatingModeState(nextMode);
     if (backendConnected) {
-      controlBackendSimulation(action, speed);
+      await setOperatingMode(nextMode);
     }
-  }, [backendConnected]);
-
-  const toggleOperatingMode = useCallback((mode: 'DEMO_MODE' | 'LIVE_HARDWARE') => {
-    setOperatingModeState(mode);
-    if (backendConnected) {
-      setOperatingMode(mode);
-    }
-  }, [backendConnected]);
+  }, [operatingMode, backendConnected]);
 
   const setManualVisibility = useCallback((vis: number) => {
     clientSimulator.setManualVisibility(vis);
@@ -154,9 +202,25 @@ export function useTelemetry() {
     clientSimulator.restartGuidedDemo();
   }, []);
 
+  const setPiUrl = useCallback((url: string) => {
+    piHardwareClient.setUrl(url);
+    setPiStatus(piHardwareClient.getStatus());
+  }, []);
+
+  const checkPiConnection = useCallback(async () => {
+    const ok = await piHardwareClient.checkConnection();
+    setPiStatus(piHardwareClient.getStatus());
+    return ok;
+  }, []);
+
   return {
     telemetry,
-    backendConnected,
+    backendConnected: backendConnected || piStatus.connected,
+    isPiConnected: piStatus.connected,
+    piStatus,
+    piUrl: piStatus.url,
+    setPiUrl,
+    checkPiConnection,
     operatingMode,
     history,
     alerts,
