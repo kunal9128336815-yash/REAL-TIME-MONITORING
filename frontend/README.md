@@ -8,6 +8,7 @@ Real-time React + TypeScript + Vite Command Center for Mining Dumper Collision A
 
 | Service | Environment | Host Address / URL | Protocol | Role / Description |
 |---|---|---|---|---|
+| **Frontend Web App (Live Cloud)** | **Worldwide / Any Phone** | **`https://kunal9128336815-yash.github.io/REAL-TIME-MONITORING/`** | HTTPS | Public live dashboard accessible anywhere |
 | **Frontend Web App** | Localhost | `http://localhost:5173` | HTTP | Local web interface |
 | **Frontend Web App** | Network / LAN | `http://<LAPTOP_IP>:5173` | HTTP | Accessible across Wi-Fi / Hotspot (`--host`) |
 | **Backend Target** | Localhost | `http://localhost:8000/api` | HTTP REST | FastAPI Telemetry & Fleet API |
