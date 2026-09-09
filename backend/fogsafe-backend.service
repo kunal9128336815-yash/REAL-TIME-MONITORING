@@ -1,0 +1,23 @@
+[Unit]
+Description=FOG-SAFE Mining CAS Telemetry FastAPI Server
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/dashboard/backend
+# If using a virtualenv in /home/pi/dashboard/backend/venv:
+ExecStart=/home/pi/dashboard/backend/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Alternatively using system python:
+# ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+Restart=always
+RestartSec=3
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
