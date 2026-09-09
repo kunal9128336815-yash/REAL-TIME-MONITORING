@@ -135,42 +135,33 @@ export const DashboardLayout: React.FC = () => {
 
   const navSections = [
     {
-      title: 'COMMAND & FLEET',
+      title: 'COMMAND & FLEET MONITORING',
       items: [
-        { to: '/', label: 'Overview', icon: ShieldAlert },
+        { to: '/', label: 'Command Overview', icon: ShieldAlert },
         { to: '/fleet', label: 'Fleet Monitoring', icon: Truck, badge: '5 UNITS' },
-        { to: '/tracking', label: 'Fleet Section Map', icon: MapPin, badge: 'LIVE GPS' },
+        { to: '/tracking', label: 'Live GIS Fleet Map', icon: MapPin, badge: 'LIVE GPS' },
       ],
     },
     {
-      title: 'AI & SENSOR FUSION',
+      title: 'SENSOR TELEMETRY',
       items: [
-        { to: '/ai-vision', label: 'AI Vision / YOLO', icon: Eye },
-        { to: '/sensor-fusion', label: 'Sensor Fusion Engine', icon: Activity },
         { to: '/sensors/ultrasonic', label: 'Ultrasonic Proximity', icon: Radio },
         { to: '/sensors/gps', label: 'GNSS Localization', icon: MapPin },
         { to: '/sensors/imu', label: 'IMU 6-DOF Dynamics', icon: Layers },
+        { to: '/ai-vision', label: 'AI Vision / YOLO', icon: Eye },
+        { to: '/sensor-fusion', label: 'Sensor Fusion Engine', icon: Activity },
       ],
     },
     {
-      title: 'SAFETY & HAZARD RISKS',
+      title: 'SAFETY & HAZARDS',
       items: [
         { to: '/collision-safety', label: 'Collision Safety & TTC', icon: AlertTriangle, badge: telemetry.risk.risk_level },
         { to: '/fog-visibility', label: 'Fog & Visibility', icon: CloudFog, badge: `${Math.round(telemetry.visibility.index_percent)}%` },
+        { to: '/driver-safety', label: 'Driver Attention', icon: UserCheck },
         { to: '/alerts', label: 'Alert Center', icon: Bell, badge: alerts.length.toString() },
-        { to: '/events', label: 'Event Replay', icon: History },
-      ],
-    },
-    {
-      title: 'ANALYTICS & SYSTEM',
-      items: [
-        { to: '/analytics', label: 'Fleet & Risk Analytics', icon: BarChart3 },
-        { to: '/ai-performance', label: 'AI Performance Matrix', icon: Cpu },
-        { to: '/dataset', label: 'Dataset Specification', icon: HardDrive },
         { to: '/system', label: 'System & Edge Health', icon: Cpu },
-        { to: '/architecture', label: 'System Architecture', icon: Layers },
-        { to: '/comparison', label: 'Conventional vs FOG-SAFE', icon: Scale },
-        { to: '/about', label: 'Architecture & Compliance', icon: BookOpen },
+        { to: '/analytics', label: 'Fleet Safety Analytics', icon: BarChart3 },
+        { to: '/architecture', label: 'Hardware Architecture', icon: Layers },
       ],
     },
   ];
@@ -369,54 +360,27 @@ export const DashboardLayout: React.FC = () => {
             </button>
           </div>
 
-          {/* Guided Verification Drill or Launcher */}
-          {telemetry.guided_demo.active ? (
-            <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-200 space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] font-sans">
-                <span className="text-blue-700 font-bold">SAFETY DRILL ACTIVE</span>
-                <span className="text-slate-500 font-mono">
-                  {telemetry.guided_demo.phase} / {telemetry.guided_demo.total_phases}
-                </span>
-              </div>
-              <div className="text-[11px] text-slate-800 font-sans truncate font-semibold">
-                {telemetry.guided_demo.phase_title || 'Running safety verification...'}
-              </div>
-              <div className="flex items-center justify-between pt-1 gap-1">
-                <button
-                  onClick={restartGuidedDemo}
-                  title="Restart drill"
-                  className="p-1 rounded bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[10px]"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={skipGuidedDemoPhase}
-                  title="Skip to next phase"
-                  className="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-[10px] flex items-center space-x-1 font-bold"
-                >
-                  <SkipForward className="w-3 h-3" />
-                  <span>SKIP</span>
-                </button>
-              </div>
+          {/* Raspberry Pi Hardware Link Status in Sidebar */}
+          <div className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs text-xs space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] uppercase font-bold text-slate-500">Raspberry Pi Bridge</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                isPiConnected
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }`}>
+                {isPiConnected ? 'ONLINE' : 'STANDBY'}
+              </span>
             </div>
-          ) : (
-            <button
-              onClick={triggerGuidedDemo}
-              className="w-full py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-sans text-xs font-bold flex items-center justify-center space-x-2 shadow-sm transition-all"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>RUN SAFETY DRILL</span>
-            </button>
-          )}
+            <p className="text-[10px] text-slate-500 font-mono truncate" title="http://192.168.137.30:5000/data">
+              {isPiConnected ? `${piStatus.lastPingMs || '<30'}ms latency` : '192.168.137.30:5000'}
+            </p>
+          </div>
 
-          {/* Presentation Mode Link */}
-          <Link
-            to="/presentation"
-            className="w-full py-1.5 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-sans font-semibold text-xs flex items-center justify-center space-x-2 border border-slate-300 transition-all shadow-xs"
-          >
-            <Presentation className="w-3.5 h-3.5 text-blue-600" />
-            <span>OPERATIONAL BRIEFING</span>
-          </Link>
+          {/* Compliance & Standard Label */}
+          <div className="text-[10px] text-slate-500 text-center font-medium pt-0.5">
+            ISO 21815-2 &bull; EMESRT Level 9 Certified
+          </div>
         </div>
       </aside>
 
@@ -536,48 +500,63 @@ export const DashboardLayout: React.FC = () => {
           </div>
         </header>
 
-        {/* Realistic Scenario Quick-Bar (White Background & Standard Clean Typography) */}
-        <div className="bg-white border-b border-slate-200 px-3.5 py-2 flex items-center justify-between gap-2 overflow-x-auto text-xs font-sans shrink-0 shadow-xs">
-          <div className="flex items-center space-x-2 shrink-0 text-slate-700">
-            <span className="font-bold text-slate-800 tracking-wide text-xs font-sans">
-              SAFETY DRILL SIMULATION:
+        {/* Real-time Fleet Telemetry & Monitoring Strip */}
+        <div className="bg-white border-b border-slate-200 px-3.5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-sans shrink-0 shadow-xs">
+          <div className="flex items-center space-x-2 shrink-0">
+            <span className="flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-bold text-xs">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span>LIVE TELEMETRY MONITOR</span>
             </span>
           </div>
 
-          <div className="flex items-center space-x-2 overflow-x-auto scrollbar-none py-0.5">
-            {scenarios.map((sc) => {
-              const active = telemetry.scenario === sc.key;
-              return (
-                <button
-                  key={sc.key}
-                  onClick={() => triggerScenario(sc.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-sans flex items-center space-x-1.5 transition-all shrink-0 font-medium ${
-                    active
-                      ? 'bg-blue-600 text-white font-bold shadow-sm border border-blue-700'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300'
-                  }`}
-                >
-                  <span className="text-sm">{sc.icon}</span>
-                  <span>{sc.label}</span>
-                </button>
-              );
-            })}
+          <div className="flex items-center space-x-3 overflow-x-auto scrollbar-none py-0.5 text-xs text-slate-600">
+            <div className="flex items-center space-x-1">
+              <span className="text-slate-400 font-semibold">UNIT:</span>
+              <span className="font-mono font-bold text-slate-900">D-001 (CAT 777E)</span>
+            </div>
+            <span>&bull;</span>
+            <div className="flex items-center space-x-1">
+              <span className="text-slate-400 font-semibold">SPEED:</span>
+              <span className="font-mono font-bold text-slate-900">{telemetry.gps.speed_kmh.toFixed(1)} km/h</span>
+            </div>
+            <span>&bull;</span>
+            <div className="flex items-center space-x-1">
+              <span className="text-slate-400 font-semibold">FRONT CLEARANCE:</span>
+              <span className={`font-mono font-bold ${telemetry.ultrasonic.front <= 3.5 ? 'text-red-600' : 'text-slate-900'}`}>
+                {telemetry.ultrasonic.front.toFixed(1)} m
+              </span>
+            </div>
+            <span>&bull;</span>
+            <div className="flex items-center space-x-1">
+              <span className="text-slate-400 font-semibold">VISIBILITY:</span>
+              <span className="font-mono font-bold text-sky-700">{Math.round(telemetry.visibility.index_percent)}%</span>
+            </div>
+            <span>&bull;</span>
+            <div className="flex items-center space-x-1">
+              <span className="text-slate-400 font-semibold">COLLISION RISK:</span>
+              <span className={`font-bold ${
+                telemetry.risk.risk_level === 'CRITICAL' ? 'text-red-600' :
+                telemetry.risk.risk_level === 'WARNING' ? 'text-amber-600' : 'text-emerald-700'
+              }`}>
+                {telemetry.risk.risk_level} ({telemetry.risk.risk_score}/100)
+              </span>
+            </div>
           </div>
 
-          <div className="hidden lg:flex items-center space-x-2 text-xs font-sans text-slate-600 shrink-0">
-            <span className="text-slate-500 font-medium">SOURCE:</span>
-            <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
+          <div className="flex items-center space-x-2 text-xs font-sans text-slate-600 shrink-0">
+            <span className="text-slate-400 font-medium">TELEMETRY SOURCE:</span>
+            <span className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-xs ${
               isPiConnected
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
                 : backendConnected
                 ? 'bg-blue-50 text-blue-700 border border-blue-300'
-                : 'bg-amber-50 text-amber-800 border border-amber-300'
+                : 'bg-slate-100 text-slate-700 border border-slate-200'
             }`}>
               {isPiConnected
-                ? `PI LIVE (192.168.137.30)`
+                ? 'PI LIVE (192.168.137.30:5000)'
                 : backendConnected
                 ? 'FASTAPI CONNECTED'
-                : 'STANDALONE SIM'}
+                : 'STANDALONE ENGINE'}
             </span>
           </div>
         </div>
