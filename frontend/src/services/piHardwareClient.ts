@@ -145,6 +145,22 @@ class PiHardwareClient {
       // Proxy failed or not on local Vite
     }
 
+    // 3. Try local FastAPI backend proxy (http://localhost:8000/api/pi-proxy)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch('http://localhost:8000/api/pi-proxy', {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Backend not running or unreachable
+    }
+
     throw new Error(`Cannot reach Pi at ${targetUrl}`);
   }
 
@@ -167,13 +183,11 @@ class PiHardwareClient {
       }
     } catch (err: any) {
       this.consecutiveFailures++;
-      // After 2 consecutive misses, mark as offline
+      // Require 2 consecutive failures before declaring offline
       if (this.consecutiveFailures >= 2) {
-        if (this.isConnected) {
-          this.isConnected = false;
-          this.lastError = err?.message || 'Pi connection dropped';
-          this.notify(false);
-        }
+        this.isConnected = false;
+        this.lastError = err?.message || 'Connection lost';
+        this.notify(false);
       }
     }
   }
@@ -197,14 +211,19 @@ class PiHardwareClient {
     const prev = base || this.lastTelemetry;
 
     // 1. Ultrasonic Proximity
-    const front = this.extractNumber(
+    const rawFront = this.extractNumber(
       [raw.ultrasonic?.front, raw.front, raw.distance, raw.front_distance, raw.us_front, raw.front_sensor],
       prev ? prev.ultrasonic.front : 4.5
     );
-    const rear = this.extractNumber(
+    // If HC-SR04 returns distance in cm (> 30 cm), normalize to meters
+    const front = rawFront > 30.0 ? rawFront / 100.0 : rawFront;
+
+    const rawRear = this.extractNumber(
       [raw.ultrasonic?.rear, raw.rear, raw.rear_distance, raw.us_rear],
       prev ? prev.ultrasonic.rear : 12.0
     );
+    const rear = rawRear > 30.0 ? rawRear / 100.0 : rawRear;
+
     const left = this.extractNumber(
       [raw.ultrasonic?.left, raw.left, raw.left_distance, raw.us_left],
       prev ? prev.ultrasonic.left : 6.0
@@ -217,11 +236,11 @@ class PiHardwareClient {
     // 2. GPS Telemetry
     const lat = this.extractNumber(
       [raw.gps?.lat, raw.lat, raw.latitude, raw.gps_lat],
-      prev ? prev.gps.lat : 22.71960
+      prev ? prev.gps.lat : 23.153484
     );
     const lon = this.extractNumber(
       [raw.gps?.lon, raw.lon, raw.longitude, raw.gps_lon],
-      prev ? prev.gps.lon : 75.85770
+      prev ? prev.gps.lon : 72.886475
     );
     const speedKmh = this.extractNumber(
       [raw.gps?.speed, raw.gps?.speed_kmh, raw.speed, raw.speed_kmh, raw.velocity],

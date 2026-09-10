@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from .database.db import init_db
-from .api import sensors, simulation, fleet, alerts, settings as settings_api
+from .api import sensors, simulation, fleet, alerts, settings as settings_api, pi_bridge
 from .simulation.physics_engine import simulation_engine
 
 logging.basicConfig(level=logging.INFO)
@@ -34,6 +34,12 @@ app.include_router(simulation.router)
 app.include_router(fleet.router)
 app.include_router(alerts.router)
 app.include_router(settings_api.router)
+app.include_router(pi_bridge.router)
+
+@app.on_event("startup")
+async def startup_tasks():
+    pi_bridge.start_pi_bridge()
+    logger.info(f"FOG-SAFE Telemetry Gateway started. Pi Hardware Bridge initialized.")
 
 @app.get("/api/status")
 async def get_system_status():

@@ -29,5 +29,10 @@ class Settings(BaseModel):
     # Simulation
     simulation_update_interval_ms: int = 400
     demo_mode: bool = True
+    
+    # Raspberry Pi 4 Hardware Endpoint
+    pi_endpoint_url: str = os.getenv("PI_ENDPOINT_URL", "http://192.168.137.214:5000/data")
+    pi_polling_enabled: bool = True
+    pi_polling_interval_sec: float = 0.35
 
 settings = Settings()
