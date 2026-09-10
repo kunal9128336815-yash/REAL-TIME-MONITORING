@@ -120,8 +120,8 @@ export const OverviewPage: React.FC = () => {
             <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
               <span className="font-mono font-medium text-slate-700" title={piUrl}>
                 {isPiConnected
-                  ? `Pi: 192.168.137.30:5000`
-                  : 'Target: 192.168.137.30:5000/data'}
+                  ? `Pi: 192.168.137.214:5000`
+                  : 'Target: 192.168.137.214:5000/data'}
               </span>
               <span>&bull;</span>
               <span className={isPiConnected ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>

@@ -10,7 +10,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/pi-proxy': {
-        target: 'http://192.168.137.30:5000',
+        target: 'http://192.168.137.214:5000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/pi-proxy/, '/data'),
       },

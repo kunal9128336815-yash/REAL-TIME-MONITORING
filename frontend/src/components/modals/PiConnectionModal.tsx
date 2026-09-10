@@ -171,7 +171,7 @@ export const PiConnectionModal: React.FC<PiConnectionModalProps> = ({
                 type="text"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
-                placeholder="http://192.168.137.30:5000/data"
+                placeholder="http://192.168.137.214:5000/data"
                 className="flex-1 px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 bg-white"
               />
               <button
@@ -197,7 +197,7 @@ export const PiConnectionModal: React.FC<PiConnectionModalProps> = ({
                 onClick={() => handlePreset(DEFAULT_PI_URL)}
                 className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-[11px] font-mono transition-colors"
               >
-                192.168.137.30:5000/data
+                192.168.137.214:5000/data
               </button>
               <button
                 onClick={() => handlePreset('/pi-proxy')}
@@ -248,7 +248,7 @@ export const PiConnectionModal: React.FC<PiConnectionModalProps> = ({
                 Turn <strong>ON</strong> <em>Mobile Hotspot</em> on your Windows laptop.
               </li>
               <li>
-                Connect your Raspberry Pi to this laptop hotspot (it will receive an IP like <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-mono text-blue-800">192.168.137.30</code>).
+                Connect your Raspberry Pi to this laptop hotspot (it will receive an IP like <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-mono text-blue-800">192.168.137.214</code>).
               </li>
               <li>
                 Start your Python script on the Pi (e.g. <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-mono text-blue-800">python3 app.py</code>) serving JSON at port <code className="bg-white px-1 py-0.5 rounded border border-blue-200 font-mono text-blue-800">5000/data</code>.

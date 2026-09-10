@@ -1,7 +1,7 @@
 import { TelemetryState, VisionDetection } from '../types';
 
 const STORAGE_KEY = 'fogsafe_pi_url';
-export const DEFAULT_PI_URL = 'http://192.168.137.30:5000/data';
+export const DEFAULT_PI_URL = 'http://192.168.137.214:5000/data';
 
 export interface PiConnectionStatus {
   connected: boolean;
@@ -29,7 +29,13 @@ class PiHardwareClient {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      this.url = localStorage.getItem(STORAGE_KEY) || DEFAULT_PI_URL;
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && stored !== 'http://192.168.137.30:5000/data') {
+        this.url = stored;
+      } else {
+        this.url = DEFAULT_PI_URL;
+        localStorage.setItem(STORAGE_KEY, DEFAULT_PI_URL);
+      }
     } else {
       this.url = DEFAULT_PI_URL;
     }

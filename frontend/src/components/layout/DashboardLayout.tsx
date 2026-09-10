@@ -372,8 +372,8 @@ export const DashboardLayout: React.FC = () => {
                 {isPiConnected ? 'ONLINE' : 'STANDBY'}
               </span>
             </div>
-            <p className="text-[10px] text-slate-500 font-mono truncate" title="http://192.168.137.30:5000/data">
-              {isPiConnected ? `${piStatus.lastPingMs || '<30'}ms latency` : '192.168.137.30:5000'}
+            <p className="text-[10px] text-slate-500 font-mono truncate" title="http://192.168.137.214:5000/data">
+              {isPiConnected ? `${piStatus.lastPingMs || '<30'}ms latency` : '192.168.137.214:5000'}
             </p>
           </div>
 
@@ -553,7 +553,7 @@ export const DashboardLayout: React.FC = () => {
                 : 'bg-slate-100 text-slate-700 border border-slate-200'
             }`}>
               {isPiConnected
-                ? 'PI LIVE (192.168.137.30:5000)'
+                ? 'PI LIVE (192.168.137.214:5000)'
                 : backendConnected
                 ? 'FASTAPI CONNECTED'
                 : 'STANDALONE ENGINE'}

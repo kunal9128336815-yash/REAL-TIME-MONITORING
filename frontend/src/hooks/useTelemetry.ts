@@ -17,7 +17,7 @@ export function useTelemetry() {
   const lastScenarioRef = useRef<string>('NORMAL_OPERATION');
   const isPiActiveRef = useRef<boolean>(false);
 
-  // 1. Connect Raspberry Pi Hardware Poller on Mount (http://192.168.137.30:5000/data)
+  // 1. Connect Raspberry Pi Hardware Poller on Mount (http://192.168.137.214:5000/data)
   useEffect(() => {
     piHardwareClient.start();
 
