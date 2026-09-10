@@ -3,10 +3,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 
 class Settings(BaseModel):
-    # Proximity & Collision Thresholds (in meters: 10cm warning, 6cm critical)
-    warning_distance: float = 0.10
-    critical_distance: float = 0.06
-    stop_distance: float = 0.06
+    # Proximity & Collision Thresholds (in meters: 15cm warning, 10cm stop/critical)
+    warning_distance: float = 0.15
+    critical_distance: float = 0.10
+    stop_distance: float = 0.10
     
     # Time To Collision Thresholds (in seconds)
     ttc_warning_threshold: float = 4.0

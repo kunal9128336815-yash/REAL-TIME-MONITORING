@@ -111,12 +111,12 @@ def evaluate_collision_risk(
     hazard_summary = "Haul road unobstructed"
     emergency_sms_required = False
     
-    # 1. Critical Stop Threshold (Near 6cm / <= 0.06m)
+    # 1. Critical Stop Threshold (< 10cm / <= 0.10m)
     if front_dist <= settings.stop_distance:
         risk_level = "CRITICAL"
         action = "STOP VEHICLE IMMEDIATELY"
-        hazard_summary = f"CRITICAL HAZARD: Impending collision at {front_dist*100:.1f}cm (<= 6cm STOP threshold)"
-        reasons.append(f"Critical proximity: {front_dist*100:.1f} cm (<= 6 cm STOP threshold)")
+        hazard_summary = f"CRITICAL HAZARD: Impending collision at {front_dist*100:.1f}cm (< 10cm STOP threshold)"
+        reasons.append(f"Critical proximity: {front_dist*100:.1f} cm (< 10 cm STOP threshold)")
         if ttc is not None:
             reasons.append(f"TTC critical: {ttc:.1f} sec")
         if person_det:
@@ -125,18 +125,18 @@ def evaluate_collision_risk(
             reasons.append(f"Oncoming dumper ({dumper_det.get('confidence', 0.9):.0%} conf)")
         emergency_sms_required = True
         
-    # 2. Warning Proximity Threshold (Below 10cm down to 6cm / 0.06m < front_dist <= 0.10m)
+    # 2. Warning Proximity Threshold (> 10cm to 15cm / 0.10m < front_dist <= 0.15m)
     elif front_dist <= settings.warning_distance:
         risk_level = "WARNING"
         action = "APPLY BRAKES — PROXIMITY WARNING"
-        hazard_summary = f"Proximity warning: Obstacle detected at {front_dist*100:.1f}cm (< 10cm)"
-        reasons.append(f"Front proximity warning: {front_dist*100:.1f} cm (< 10 cm)")
+        hazard_summary = f"Proximity warning: Obstacle detected at {front_dist*100:.1f}cm (10cm - 15cm)"
+        reasons.append(f"Front proximity warning: {front_dist*100:.1f} cm (10cm - 15cm)")
         if ttc is not None:
             reasons.append(f"TTC: {ttc:.1f} sec")
         if person_det:
             reasons.append(f"Person detected ({person_det.get('confidence', 0.9):.0%} conf)")
 
-    # 3. Dynamic closing collision for obstacles beyond 10cm
+    # 3. Dynamic closing collision for obstacles beyond 15cm
     elif ttc is not None and ttc <= settings.ttc_critical_threshold:
         risk_level = "CRITICAL"
         action = "STOP VEHICLE IMMEDIATELY"
@@ -150,12 +150,12 @@ def evaluate_collision_risk(
         hazard_summary = f"Warning: Closing on obstacle (TTC: {ttc:.1f}s)"
         reasons.append(f"TTC closure warning: {ttc:.1f} sec")
             
-    # 4. Safe Condition (> 10cm / > 0.10m)
+    # 4. Safe Condition (> 15cm / > 0.15m)
     else:
         risk_level = "SAFE"
         action = "ALL CLEAR — PROCEED SAFELY"
-        hazard_summary = f"Haul road unobstructed (Clearance: {front_dist*100:.1f}cm > 10cm)"
-        reasons.append(f"Front clearance safe: {front_dist*100:.1f} cm (> 10 cm)")
+        hazard_summary = f"Haul road unobstructed (Clearance: {front_dist*100:.1f}cm > 15cm)"
+        reasons.append(f"Front clearance safe: {front_dist*100:.1f} cm (> 15 cm)")
         if ttc is not None:
             reasons.append(f"TTC: {ttc:.1f}s")
         reasons.append(f"Visibility: {visibility_percent:.0f}%")

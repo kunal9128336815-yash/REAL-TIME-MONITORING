@@ -5,7 +5,7 @@ class AudioAlertService {
   private lastSpeechTime: number = 0;
 
   // Real-time ultrasonic proximity buzzer state
-  private currentBuzzerMode: 'OFF' | 'WARNING_BEEP' | 'CRITICAL_LONG_BEEP' = 'OFF';
+  private currentBuzzerMode: 'OFF' | 'LONG_BEEP' | 'BEEP_BEEP' = 'OFF';
   private buzzerIntervalId: number | null = null;
   private continuousOsc: OscillatorNode | null = null;
   private continuousGain: GainNode | null = null;
@@ -93,9 +93,9 @@ class AudioAlertService {
 
   /**
    * Real-time hardware buzzer control based on ultrasonic proximity:
-   *  - > 10cm (> 0.10m): SAFE -> Silent
-   *  - <= 10cm and > 6cm (0.06m to 0.10m): WARNING -> Pulsing Beep Buzzer Sound
-   *  - <= 6cm (<= 0.06m): CRITICAL -> Continuous Long Beep Sound!
+   *  - < 10cm (< 0.10m): STOP / CRITICAL -> Rapid "beep beep" sound!
+   *  - 10cm to 15cm (0.10m to 0.15m): WARNING -> Continuous "long beep" sound!
+   *  - > 15cm (> 0.15m): SAFE -> No sound (silent)!
    */
   public updateHardwareBuzzer(distanceMeters: number | null | undefined, riskLevel: string) {
     if (this.isMuted) {
@@ -104,21 +104,21 @@ class AudioAlertService {
     }
 
     // Determine target mode
-    let targetMode: 'OFF' | 'WARNING_BEEP' | 'CRITICAL_LONG_BEEP' = 'OFF';
+    let targetMode: 'OFF' | 'LONG_BEEP' | 'BEEP_BEEP' = 'OFF';
 
     if (distanceMeters !== null && distanceMeters !== undefined && distanceMeters > 0) {
-      if (distanceMeters <= 0.065 || riskLevel === 'CRITICAL') {
-        targetMode = 'CRITICAL_LONG_BEEP';
-      } else if (distanceMeters <= 0.105 || riskLevel === 'WARNING') {
-        targetMode = 'WARNING_BEEP';
+      if (distanceMeters <= 0.105 || riskLevel === 'CRITICAL') {
+        targetMode = 'BEEP_BEEP'; // < 0.10m: stop -> beep beep sound
+      } else if (distanceMeters <= 0.155 || riskLevel === 'WARNING') {
+        targetMode = 'LONG_BEEP'; // 0.10m to 0.15m: warning -> long beep sound
       } else {
-        targetMode = 'OFF';
+        targetMode = 'OFF'; // > 0.15m: safe -> no sound
       }
     } else {
       if (riskLevel === 'CRITICAL') {
-        targetMode = 'CRITICAL_LONG_BEEP';
+        targetMode = 'BEEP_BEEP';
       } else if (riskLevel === 'WARNING') {
-        targetMode = 'WARNING_BEEP';
+        targetMode = 'LONG_BEEP';
       } else {
         targetMode = 'OFF';
       }
@@ -132,8 +132,8 @@ class AudioAlertService {
     this.stopBuzzer();
     this.currentBuzzerMode = targetMode;
 
-    if (targetMode === 'CRITICAL_LONG_BEEP') {
-      // Long continuous high-intensity emergency tone
+    if (targetMode === 'LONG_BEEP') {
+      // 0.10m to 0.15m WARNING: Continuous long beep sound
       try {
         const ctx = this.getAudioContext();
         if (!ctx) return;
@@ -141,8 +141,8 @@ class AudioAlertService {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(980, ctx.currentTime);
-        gain.gain.setValueAtTime(0.28, ctx.currentTime);
+        osc.frequency.setValueAtTime(840, ctx.currentTime);
+        gain.gain.setValueAtTime(0.24, ctx.currentTime);
 
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -151,15 +151,15 @@ class AudioAlertService {
         this.continuousOsc = osc;
         this.continuousGain = gain;
       } catch (e) {
-        console.warn("Critical buzzer error:", e);
+        console.warn("Long beep buzzer error:", e);
       }
-    } else if (targetMode === 'WARNING_BEEP') {
-      // Intermittent pulsating beeps (beep... beep... beep...)
+    } else if (targetMode === 'BEEP_BEEP') {
+      // < 0.10m STOP / CRITICAL: Rapid urgent beep beep sound
       const beep = () => {
-        this.playTone(820, 'square', 140, 0.22);
+        this.playTone(950, 'square', 100, 0.28);
       };
       beep();
-      this.buzzerIntervalId = window.setInterval(beep, 320);
+      this.buzzerIntervalId = window.setInterval(beep, 220);
     }
   }
 
