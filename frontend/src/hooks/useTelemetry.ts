@@ -1,23 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TelemetryState, ScenarioType, HistoricalDataPoint, AlertRecord } from '../types';
-import { clientSimulator } from '../services/simulator';
+import { OFFLINE_TELEMETRY_STATE, clientSimulator } from '../services/simulator';
 import { wsClient } from '../services/websocket';
 import { piHardwareClient, PiConnectionStatus } from '../services/piHardwareClient';
 import { setBackendScenario, controlBackendSimulation, startBackendGuidedDemo, setOperatingMode, fetchAlerts } from '../services/api';
 
 export function useTelemetry() {
-  const [telemetry, setTelemetry] = useState<TelemetryState>(() => clientSimulator.tick());
+  const [telemetry, setTelemetry] = useState<TelemetryState>(() => OFFLINE_TELEMETRY_STATE);
   const [backendConnected, setBackendConnected] = useState<boolean>(false);
   const [piStatus, setPiStatus] = useState<PiConnectionStatus>(() => piHardwareClient.getStatus());
-  const [operatingMode, setOperatingModeState] = useState<'DEMO_MODE' | 'LIVE_HARDWARE'>('DEMO_MODE');
+  const [operatingMode, setOperatingModeState] = useState<'DEMO_MODE' | 'LIVE_HARDWARE' | 'OFFLINE'>('OFFLINE');
   const [history, setHistory] = useState<HistoricalDataPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
 
-  const lastRiskRef = useRef<string>('SAFE');
-  const lastScenarioRef = useRef<string>('NORMAL_OPERATION');
+  const lastRiskRef = useRef<string>('OFFLINE');
   const isPiActiveRef = useRef<boolean>(false);
+  const lastScenarioRef = useRef<ScenarioType>('NO_HARDWARE_FEED');
 
-  // 1. Connect Raspberry Pi Hardware Poller on Mount (http://192.168.137.214:5000/data)
+  // 1. Connect Raspberry Pi Hardware Poller on Mount
   useEffect(() => {
     piHardwareClient.start();
 
@@ -27,9 +27,9 @@ export function useTelemetry() {
 
       if (connected && piTelemetry) {
         setTelemetry(piTelemetry);
+        setOperatingModeState('LIVE_HARDWARE');
         recordHistory(piTelemetry);
 
-        // Check if risk transitioned to add dynamic alert
         if (piTelemetry.risk.risk_level !== lastRiskRef.current) {
           if (piTelemetry.risk.risk_level === 'CRITICAL' || piTelemetry.risk.risk_level === 'WARNING') {
             const newAlert: AlertRecord = {
@@ -48,6 +48,8 @@ export function useTelemetry() {
           lastRiskRef.current = piTelemetry.risk.risk_level;
         }
       }
+      // If direct browser polling failed, do NOT overwrite WebSocket telemetry!
+      // The backend WebSocket stream cleanly provides live or verified offline state.
     });
 
     return () => {
@@ -65,10 +67,31 @@ export function useTelemetry() {
     });
 
     const unsubData = wsClient.subscribeData((data) => {
-      // If direct Raspberry Pi hardware is not streaming, use backend WebSocket
+      // If direct browser polling is not active, use backend WebSocket
       if (!isPiActiveRef.current) {
         setTelemetry(data);
-        recordHistory(data);
+        setOperatingModeState(data.mode as any);
+        if (data.mode === 'LIVE_HARDWARE' && data.online) {
+          recordHistory(data);
+        }
+
+        if (data.risk && data.risk.risk_level !== lastRiskRef.current) {
+          if (data.risk.risk_level === 'CRITICAL' || data.risk.risk_level === 'WARNING') {
+            const newAlert: AlertRecord = {
+              id: Date.now(),
+              timestamp: data.timestamp,
+              severity: data.risk.risk_level,
+              message: data.risk.hazard_summary,
+              category: 'COLLISION_RISK',
+              sms_sent: data.risk.emergency_sms_required,
+              sms_details: data.risk.emergency_sms_required
+                ? `4G SMS dispatched via ${data.gsm?.carrier || '4G LTE Private Net'} to Mine Safety Control`
+                : undefined,
+            };
+            setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
+          }
+          lastRiskRef.current = data.risk.risk_level;
+        }
       }
     });
 
@@ -80,40 +103,6 @@ export function useTelemetry() {
       unsubData();
     };
   }, []);
-
-  // 3. Standalone client loop (runs ONLY when neither Pi nor FastAPI backend is connected)
-  useEffect(() => {
-    if (backendConnected || piStatus.connected) return;
-
-    const interval = window.setInterval(() => {
-      if (isPiActiveRef.current) return;
-
-      const nextState = clientSimulator.tick();
-      setTelemetry(nextState);
-      recordHistory(nextState);
-
-      // Check if risk transitioned to add dynamic alert
-      if (nextState.risk.risk_level !== lastRiskRef.current) {
-        if (nextState.risk.risk_level === 'CRITICAL' || nextState.risk.risk_level === 'WARNING') {
-          const newAlert: AlertRecord = {
-            id: Date.now(),
-            timestamp: nextState.timestamp,
-            severity: nextState.risk.risk_level,
-            message: nextState.risk.hazard_summary,
-            category: 'COLLISION_RISK',
-            sms_sent: nextState.risk.emergency_sms_required,
-            sms_details: nextState.risk.emergency_sms_required
-              ? `4G SMS dispatched via ${nextState.gsm.carrier} to Mine Safety Control`
-              : undefined,
-          };
-          setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
-        }
-        lastRiskRef.current = nextState.risk.risk_level;
-      }
-    }, 400);
-
-    return () => clearInterval(interval);
-  }, [backendConnected, piStatus.connected]);
 
   // Keep a running buffer of the last 60 seconds (at 1-second cadence)
   const recordHistory = (state: TelemetryState) => {
@@ -213,11 +202,18 @@ export function useTelemetry() {
     return ok;
   }, []);
 
+  const liveActive = (backendConnected && telemetry.online === true && telemetry.mode === 'LIVE_HARDWARE') || piStatus.connected;
+
   return {
     telemetry,
     backendConnected: backendConnected || piStatus.connected,
-    isPiConnected: piStatus.connected,
-    piStatus,
+    isPiConnected: liveActive,
+    piStatus: {
+      ...piStatus,
+      connected: liveActive,
+      lastPingMs: piStatus.connected ? piStatus.lastPingMs : (telemetry.system_health?.latency_ms ?? 12),
+      sampleCount: piStatus.connected ? piStatus.sampleCount : ((telemetry.data_integrity as any)?.packet_count ?? (telemetry.online ? 1 : 0)),
+    },
     piUrl: piStatus.url,
     setPiUrl,
     checkPiConnection,

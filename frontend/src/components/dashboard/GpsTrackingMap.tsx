@@ -8,10 +8,10 @@ export interface FleetMapVehicle {
   name: string;
   driver: string;
   model: string;
-  speed: number;
+  speed: number | null;
   heading: number;
-  risk: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL';
-  status: 'ACTIVE' | 'PATROLLING' | 'LOADING';
+  risk: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' | 'OFFLINE';
+  status: 'ACTIVE' | 'OFFLINE' | 'STANDBY';
   payload: string;
   lat: number;
   lon: number;
@@ -80,21 +80,33 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
     } else if (vehicle.risk === 'CAUTION') {
       badgeColor = '#eab308';
       ringColor = 'rgba(234,179,8,0.5)';
+    } else if (vehicle.risk === 'OFFLINE') {
+      badgeColor = '#64748b';
+      ringColor = 'rgba(100,116,139,0.25)';
     }
 
     if (isFocus) {
-      badgeColor = vehicle.risk === 'CRITICAL' ? '#ef4444' : '#00e5ff';
-      ringColor = vehicle.risk === 'CRITICAL' ? 'rgba(239,68,68,0.6)' : 'rgba(0,229,255,0.6)';
+      if (vehicle.risk === 'OFFLINE') {
+        badgeColor = '#64748b';
+        ringColor = 'rgba(100,116,139,0.3)';
+      } else {
+        badgeColor = vehicle.risk === 'CRITICAL' ? '#ef4444' : '#00e5ff';
+        ringColor = vehicle.risk === 'CRITICAL' ? 'rgba(239,68,68,0.6)' : 'rgba(0,229,255,0.6)';
+      }
     } else if (isPatrol) {
-      badgeColor = '#38bdf8';
-      ringColor = 'rgba(56,189,248,0.45)';
+      badgeColor = '#64748b';
+      ringColor = 'rgba(100,116,139,0.25)';
     }
+
+    const speedLabel = vehicle.speed !== null && vehicle.speed !== undefined
+      ? `${vehicle.speed.toFixed(0)} km/h`
+      : 'OFFLINE';
 
     return L.divIcon({
       className: `fleet-marker-${vehicle.id}`,
       html: `
         <div style="position:relative; width:44px; height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-          ${isFocus ? `
+          ${isFocus && vehicle.risk !== 'OFFLINE' ? `
             <div style="position:absolute; top:-20px; width:0; height:0; border-left:12px solid transparent; border-right:12px solid transparent; border-bottom:24px solid ${ringColor}; filter:drop-shadow(0 0 6px ${badgeColor}); pointer-events:none; transform: rotate(${vehicle.heading}deg); transform-origin: center bottom;"></div>
           ` : ''}
           <div style="
@@ -108,7 +120,7 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
           <div style="
             position:relative;
             background:${badgeColor};
-            color:#000;
+            color:#ffffff;
             width:22px;
             height:22px;
             border-radius:50%;
@@ -137,7 +149,7 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
             white-space:nowrap;
             pointer-events:none;
           ">
-            ${vehicle.speed.toFixed(0)} km/h
+            ${speedLabel}
           </div>
         </div>
       `,
@@ -305,72 +317,59 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
     `);
     userMarkerRef.current = userMarker;
 
-    // Initialize 5 Fleet Vehicle Markers
+    // Initialize Fleet Vehicle Markers (Only D-001 is active; others are parked in depot)
     const initialVehicles: FleetMapVehicle[] = [
       {
         id: 'D-001',
-        name: 'Dumper D-001 (Primary Rig)',
+        name: 'Dumper D-001 (Active Hardware Rig)',
         driver: 'R. Kumar (ID: 4108)',
         model: 'CAT 777E (240T)',
-        speed: 16.5,
-        heading: 48,
-        risk: 'SAFE',
-        status: 'ACTIVE',
-        payload: '98.4 Tons',
-        lat: cLat + 0.0015,
-        lon: cLon + 0.0018,
+        speed: gpsRef.current.speed_kmh,
+        heading: gpsRef.current.heading_deg || 0,
+        risk: (gpsRef.current.speed_kmh === null && gpsRef.current.lat === null ? 'OFFLINE' : (hazardDetectedRef.current ? 'CRITICAL' : 'SAFE')),
+        status: (gpsRef.current.speed_kmh !== null || gpsRef.current.lat !== null) ? 'ACTIVE' : 'OFFLINE',
+        payload: '85.4 Tons',
+        lat: gpsRef.current.lat !== null ? gpsRef.current.lat : cLat + 0.0015,
+        lon: gpsRef.current.lon !== null ? gpsRef.current.lon : cLon + 0.0018,
       },
       {
         id: 'D-002',
-        name: 'Dumper D-002',
+        name: 'Dumper D-002 (Parked in Depot)',
         driver: 'M. Soren (ID: 3290)',
         model: 'Komatsu HD785',
-        speed: 10.4,
+        speed: null,
         heading: 135,
-        risk: 'WARNING',
-        status: 'ACTIVE',
-        payload: '92.0 Tons',
+        risk: 'OFFLINE',
+        status: 'OFFLINE',
+        payload: '0.0 Tons (Parked)',
         lat: cLat + 0.0035,
         lon: cLon - 0.0028,
       },
       {
         id: 'D-003',
-        name: 'Dumper D-003',
+        name: 'Dumper D-003 (Parked in Depot)',
         driver: 'A. Tirkey (ID: 5512)',
         model: 'CAT 777E',
-        speed: 16.8,
+        speed: null,
         heading: 210,
-        risk: 'SAFE',
-        status: 'ACTIVE',
-        payload: '0.0 Tons (Empty)',
+        risk: 'OFFLINE',
+        status: 'OFFLINE',
+        payload: '0.0 Tons (Parked)',
         lat: cLat - 0.0025,
         lon: cLon + 0.0032,
       },
       {
         id: 'D-004',
-        name: 'Dumper D-004',
+        name: 'Dumper D-004 (Parked in Depot)',
         driver: 'Mohd. Salim (ID: 639)',
         model: 'Terex TR100',
-        speed: 7.2,
+        speed: null,
         heading: 320,
-        risk: 'CAUTION',
-        status: 'LOADING',
-        payload: '88.5 Tons',
+        risk: 'OFFLINE',
+        status: 'OFFLINE',
+        payload: '0.0 Tons (Parked)',
         lat: cLat - 0.0038,
         lon: cLon - 0.0022,
-      },
-      {
-        id: 'PATROL-01',
-        name: 'Safety Patrol Truck #01',
-        driver: 'S. Verma (Safety Officer)',
-        model: 'Ford F-550 Pit Patrol',
-        speed: 24.2,
-        heading: 45,
-        risk: 'SAFE',
-        status: 'PATROLLING',
-        payload: '2.5 Tons Gear',
-        lat: cLat + 0.0012,
-        lon: cLon - 0.0042,
       },
     ];
 
@@ -382,13 +381,13 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
         <div style="font-family:Inter,sans-serif; font-size:12px; line-height:1.4; min-width:170px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <b style="font-size:13px; color:#0f172a;">${v.name}</b>
-            <span style="background:${v.risk === 'CRITICAL' ? '#fee2e2' : '#dcfce7'}; color:${v.risk === 'CRITICAL' ? '#b91c1c' : '#15803d'}; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:4px;">
+            <span style="background:${v.risk === 'CRITICAL' ? '#fee2e2' : (v.risk === 'OFFLINE' ? '#f1f5f9' : '#dcfce7')}; color:${v.risk === 'CRITICAL' ? '#b91c1c' : (v.risk === 'OFFLINE' ? '#64748b' : '#15803d')}; font-size:9px; font-weight:bold; padding:1px 5px; border-radius:4px;">
               ${v.risk}
             </span>
           </div>
           <div><b>Driver:</b> ${v.driver}</div>
           <div><b>Model:</b> ${v.model}</div>
-          <div><b>Speed:</b> <span style="font-family:'JetBrains Mono'; font-weight:bold;">${v.speed.toFixed(1)} km/h</span></div>
+          <div><b>Speed:</b> <span style="font-family:'JetBrains Mono'; font-weight:bold;">${v.speed !== null ? `${v.speed.toFixed(1)} km/h` : 'OFFLINE'}</span></div>
           <div><b>Payload:</b> ${v.payload}</div>
         </div>
       `);
@@ -462,76 +461,66 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
       const currentGps = gpsRef.current;
       const currentHazard = hazardDetectedRef.current;
 
+      const isOnline = currentGps.speed_kmh !== null || currentGps.lat !== null;
+      const d1Lat = currentGps.lat !== null ? currentGps.lat : cLat + 0.0015;
+      const d1Lon = currentGps.lon !== null ? currentGps.lon : cLon + 0.0018;
+
       const vehiclesToUpdate: FleetMapVehicle[] = [
         // Vehicle 1: D-001 (CAT 777E Primary Rig)
         {
           id: 'D-001',
-          name: 'Dumper D-001 (Primary Rig)',
+          name: 'Dumper D-001 (Active Hardware Rig)',
           driver: 'R. Kumar (ID: 4108)',
           model: 'CAT 777E (240T)',
           speed: currentGps.speed_kmh,
-          heading: (currentGps.heading_deg + step * 2) % 360,
-          risk: currentHazard ? 'CRITICAL' : 'SAFE',
-          status: 'ACTIVE',
-          payload: '98.4 Tons',
-          lat: cLat + Math.sin(step * 0.07) * 0.0022,
-          lon: cLon + Math.cos(step * 0.07) * 0.0024,
+          heading: currentGps.heading_deg || 0,
+          risk: !isOnline ? 'OFFLINE' : (currentHazard ? 'CRITICAL' : 'SAFE'),
+          status: isOnline ? 'ACTIVE' : 'OFFLINE',
+          payload: isOnline ? '85.4 Tons' : '0.0 Tons',
+          lat: d1Lat,
+          lon: d1Lon,
         },
-        // Vehicle 2: D-002 (Komatsu HD785)
+        // Vehicle 2: D-002 (Stationary in Depot)
         {
           id: 'D-002',
-          name: 'Dumper D-002',
+          name: 'Dumper D-002 (Depot)',
           driver: 'M. Soren (ID: 3290)',
           model: 'Komatsu HD785',
-          speed: 10.4 + Math.sin(step * 0.2) * 1.5,
-          heading: (135 + step * 3) % 360,
-          risk: 'WARNING',
-          status: 'ACTIVE',
-          payload: '92.0 Tons',
-          lat: cLat + Math.cos(step * 0.05 + 1.2) * 0.0033,
-          lon: cLon + Math.sin(step * 0.05 + 1.2) * 0.0029,
+          speed: null,
+          heading: 135,
+          risk: 'OFFLINE',
+          status: 'OFFLINE',
+          payload: '0.0 Tons (Parked)',
+          lat: cLat + 0.0035,
+          lon: cLon - 0.0028,
         },
-        // Vehicle 3: D-003 (CAT 777E)
+        // Vehicle 3: D-003 (Stationary in Depot)
         {
           id: 'D-003',
-          name: 'Dumper D-003',
+          name: 'Dumper D-003 (Depot)',
           driver: 'A. Tirkey (ID: 5512)',
           model: 'CAT 777E',
-          speed: 16.2 + Math.cos(step * 0.2) * 2.0,
-          heading: (210 + step * 3) % 360,
-          risk: 'SAFE',
-          status: 'ACTIVE',
-          payload: '0.0 Tons (Empty)',
-          lat: cLat + Math.sin(step * 0.04 + 2.5) * 0.0036,
-          lon: cLon + Math.cos(step * 0.04 + 2.5) * 0.0033,
+          speed: null,
+          heading: 210,
+          risk: 'OFFLINE',
+          status: 'OFFLINE',
+          payload: '0.0 Tons (Parked)',
+          lat: cLat - 0.0025,
+          lon: cLon + 0.0032,
         },
-        // Vehicle 4: D-004 (Terex TR100)
+        // Vehicle 4: D-004 (Stationary in Depot)
         {
           id: 'D-004',
-          name: 'Dumper D-004',
+          name: 'Dumper D-004 (Depot)',
           driver: 'Mohd. Salim (ID: 639)',
           model: 'Terex TR100',
-          speed: 7.2 + Math.sin(step * 0.1) * 0.8,
-          heading: (320 + step * 2) % 360,
-          risk: 'CAUTION',
-          status: 'LOADING',
-          payload: '88.5 Tons',
-          lat: cLat + Math.cos(step * 0.035 + 3.8) * 0.0037,
-          lon: cLon + Math.sin(step * 0.035 + 3.8) * 0.0031,
-        },
-        // Vehicle 5: Safety Patrol Truck #01
-        {
-          id: 'PATROL-01',
-          name: 'Safety Patrol Truck #01',
-          driver: 'S. Verma (Safety Officer)',
-          model: 'Ford F-550 Pit Patrol',
-          speed: 24.2 + Math.cos(step * 0.15) * 2.5,
-          heading: (45 + step * 4) % 360,
-          risk: 'SAFE',
-          status: 'PATROLLING',
-          payload: '2.5 Tons Gear',
-          lat: cLat + Math.sin(step * 0.06 + 4.5) * 0.0043,
-          lon: cLon + Math.cos(step * 0.06 + 4.5) * 0.0041,
+          speed: null,
+          heading: 320,
+          risk: 'OFFLINE',
+          status: 'OFFLINE',
+          payload: '0.0 Tons (Parked)',
+          lat: cLat - 0.0038,
+          lon: cLon - 0.0022,
         },
       ];
 
@@ -546,9 +535,10 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
           marker.setLatLng(latLng);
           marker.setIcon(createVehicleIcon(v));
 
-          if (trail && history) {
+          // Only accumulate trail if vehicle is active and moving
+          if (trail && history && v.id === 'D-001' && isOnline) {
             history.push(latLng);
-            if (history.length > 20) {
+            if (history.length > 25) {
               history.shift();
             }
             trail.setLatLngs(history);
@@ -561,6 +551,7 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
   }, [createVehicleIcon]);
 
   const centerCoords = activeCenterRef.current;
+  const isOnline = gps.speed_kmh !== null || gps.lat !== null;
 
   return (
     <div
@@ -579,9 +570,11 @@ export const GpsTrackingMap: React.FC<GpsTrackingMapProps> = ({
           <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-800 font-sans">
             Fleet Section Map & Live Radar
           </span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-sans font-semibold flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>5 Vehicles Live</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-sans font-semibold flex items-center space-x-1 ${
+            isOnline ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-slate-100 border-slate-200 text-slate-600'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+            <span>{isOnline ? '1 Active Rig Live' : 'Hardware Standby (Offline)'}</span>
           </span>
         </div>
 

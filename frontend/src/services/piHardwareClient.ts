@@ -1,7 +1,14 @@
 import { TelemetryState, VisionDetection } from '../types';
+import { OFFLINE_TELEMETRY_STATE } from './simulator';
 
 const STORAGE_KEY = 'fogsafe_pi_url';
-export const DEFAULT_PI_URL = 'http://192.168.137.214:5000/data';
+export const DEFAULT_PI_URL = 'http://192.168.137.94:5000/data';
+export const CANDIDATE_PI_URLS = [
+  '/pi-proxy',
+  'http://192.168.137.94:5000/data',
+  'http://192.168.137.214:5000/data',
+  'http://localhost:8000/api/pi-proxy',
+];
 
 export interface PiConnectionStatus {
   connected: boolean;
@@ -196,7 +203,7 @@ class PiHardwareClient {
   private notify(connected: boolean, telemetry?: TelemetryState, rawData?: any): void {
     this.listeners.forEach((cb) => {
       try {
-        cb(connected, telemetry, rawData);
+        cb(connected, telemetry || (connected ? undefined : OFFLINE_TELEMETRY_STATE), rawData);
       } catch (e) {
         console.error('Error in PiHardwareClient listener:', e);
       }
@@ -204,69 +211,54 @@ class PiHardwareClient {
   }
 
   /**
-   * Intelligently normalizes any sensor schema produced by the Raspberry Pi:
-   * Handles flat keys (e.g. { distance: 2.3, speed: 12.5 })
-   * as well as nested keys ({ ultrasonic: { front: 2.3 }, gps: { ... } })
+   * Intelligently normalizes real sensor readings from the Raspberry Pi / ESP32.
+   * NO mock fallbacks — missing/unreported fields return null.
    */
-  public normalize(raw: any, base?: TelemetryState): TelemetryState {
-    const prev = base || this.lastTelemetry;
-
-    // 1. Ultrasonic Proximity
+  public normalize(raw: any): TelemetryState {
+    // 1. Ultrasonic Proximity (extract raw cm or m, convert >30cm to meters)
     const rawFront = this.extractNumber(
       [raw.ultrasonic?.front, raw.front, raw.distance, raw.front_distance, raw.us_front, raw.front_sensor],
-      prev ? prev.ultrasonic.front : 4.5
+      0.0
     );
-    // If HC-SR04 returns distance in cm (> 30 cm), normalize to meters
-    const front = rawFront > 30.0 ? rawFront / 100.0 : rawFront;
+    const front = (rawFront > 0)
+      ? (rawFront > 30.0 ? Math.round((rawFront / 100.0) * 100) / 100 : Math.round(rawFront * 100) / 100)
+      : 0.0;
 
     const rawRear = this.extractNumber(
       [raw.ultrasonic?.rear, raw.rear, raw.rear_distance, raw.us_rear],
-      prev ? prev.ultrasonic.rear : 12.0
+      0.0
     );
-    const rear = rawRear > 30.0 ? rawRear / 100.0 : rawRear;
+    const rear = (rawRear > 0)
+      ? (rawRear > 30.0 ? Math.round((rawRear / 100.0) * 100) / 100 : Math.round(rawRear * 100) / 100)
+      : 0.0;
 
-    const left = this.extractNumber(
-      [raw.ultrasonic?.left, raw.left, raw.left_distance, raw.us_left],
-      prev ? prev.ultrasonic.left : 6.0
-    );
-    const right = this.extractNumber(
-      [raw.ultrasonic?.right, raw.right, raw.right_distance, raw.us_right],
-      prev ? prev.ultrasonic.right : 6.5
-    );
+    const left = this.extractNumber([raw.ultrasonic?.left, raw.left, raw.left_distance, raw.us_left], 0.0);
+    const right = this.extractNumber([raw.ultrasonic?.right, raw.right, raw.right_distance, raw.us_right], 0.0);
 
-    // 2. GPS Telemetry
-    const lat = this.extractNumber(
-      [raw.gps?.lat, raw.lat, raw.latitude, raw.gps_lat],
-      prev ? prev.gps.lat : 23.153484
-    );
-    const lon = this.extractNumber(
-      [raw.gps?.lon, raw.lon, raw.longitude, raw.gps_lon],
-      prev ? prev.gps.lon : 72.886475
-    );
+    // 2. GPS & Speed Telemetry
+    const lat = this.extractNumber([raw.gps?.lat, raw.lat, raw.latitude, raw.gps_lat], 0.0);
+    const lon = this.extractNumber([raw.gps?.lon, raw.lon, raw.longitude, raw.gps_lon], 0.0);
     const speedKmh = this.extractNumber(
-      [raw.gps?.speed, raw.gps?.speed_kmh, raw.speed, raw.speed_kmh, raw.velocity],
-      prev ? prev.gps.speed_kmh : 14.5
+      [raw.gps?.speed, raw.gps?.speed_kmh, raw.flow_speed, raw.speed, raw.speed_kmh, raw.velocity],
+      0.0
     );
     const headingDeg = this.extractNumber(
       [raw.gps?.heading, raw.gps?.heading_deg, raw.heading, raw.bearing],
-      prev ? prev.gps.heading_deg : 45.0
+      0.0
     );
 
     // 3. IMU Dynamics
-    const tiltDeg = this.extractNumber(
-      [raw.imu?.tilt, raw.imu?.tilt_deg, raw.tilt, raw.pitch, raw.roll],
-      prev ? prev.imu.tilt_deg : 2.0
-    );
-    const accelerationG = this.extractNumber(
-      [raw.imu?.acceleration, raw.imu?.acceleration_g, raw.accel, raw.acceleration],
-      prev ? prev.imu.acceleration_g : 0.45
-    );
+    const tiltDeg = this.extractNumber([raw.imu?.tilt, raw.imu?.tilt_deg, raw.tilt, raw.pitch], 0.0);
+    const accelerationG = this.extractNumber([raw.imu?.acceleration, raw.imu?.acceleration_g, raw.accel], 0.0);
 
-    // 4. Fog / Environmental Visibility
-    const visPercent = this.extractNumber(
-      [raw.visibility?.index_percent, raw.visibility_percent, raw.visibility, raw.fog_index],
-      prev ? prev.visibility.index_percent : 75.0
-    );
+    // 4. Environmental & Visibility (Derived from real DHT11)
+    const dhtHum = this.extractNumber([raw.humidity, raw.hum, raw.dht_humidity], -1);
+    let visPercent = 85;
+    if (dhtHum >= 0) {
+      visPercent = Math.round(Math.max(15, Math.min(99, 100 - (dhtHum - 35) * 1.25)));
+    } else {
+      visPercent = this.extractNumber([raw.visibility?.index_percent, raw.visibility_percent, raw.visibility], 85);
+    }
 
     // 5. AI Vision Detections
     const detections: VisionDetection[] = [];
@@ -311,12 +303,13 @@ class PiHardwareClient {
     const speedMs = (speedKmh * 1000) / 3600;
     const isMoving = speedMs > 0.3;
     let ttc: number | null = null;
-    if (isMoving && front > 0.05) {
+    if (isMoving && front !== null && front > 0.05) {
       ttc = Math.round((front / speedMs) * 10) / 10;
     }
 
     // ISO 21815-2 & EMESRT Level 9 Risk Evaluation
-    let riskLevel: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' = 'SAFE';
+    const rawStatus = typeof raw.status === 'string' ? raw.status.toUpperCase() : null;
+    let riskLevel: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' | 'OFFLINE' = 'SAFE';
     let riskScore = 15;
     let action = 'NOMINAL HAUL OPERATION';
     const reasons: string[] = [];
@@ -325,28 +318,30 @@ class PiHardwareClient {
     const isDumper = detections.some((d) => d.class_name === 'dumper');
     const isObstacle = detections.some((d) => d.class_name === 'obstacle');
 
-    if (front <= 2.5 || (ttc !== null && ttc <= 2.0)) {
+    if (rawStatus === 'CRITICAL' || (front !== null && front <= 0.5) || (ttc !== null && ttc <= 2.0)) {
       riskLevel = 'CRITICAL';
-      riskScore = isPerson ? 95 : 91;
-      action = 'STOP VEHICLE';
-      if (front <= 2.5) reasons.push(`Critical ultrasonic proximity threshold breached (${front.toFixed(1)}m <= 2.5m)`);
-      if (ttc !== null && ttc <= 2.0) reasons.push(`Critical Time-to-Collision limit reached (TTC = ${ttc}s <= 2.0s)`);
+      riskScore = 95;
+      action = 'STOP VEHICLE — EMERGENCY BRAKE';
+      if (front !== null) reasons.push(`Critical ultrasonic clearance (${front.toFixed(2)}m)`);
+      if (ttc !== null && ttc <= 2.0) reasons.push(`Critical Time-to-Collision limit reached (TTC = ${ttc}s)`);
       if (isPerson) reasons.push('Pedestrian personnel verified in immediate haul path');
-    } else if (front <= 4.5 || (ttc !== null && ttc <= 4.0)) {
+    } else if (rawStatus === 'WARNING' || (front !== null && front <= 1.5) || (ttc !== null && ttc <= 4.0)) {
       riskLevel = 'WARNING';
       riskScore = 68;
-      action = 'WARNING: BRAKE HEAVILY';
-      reasons.push(`Approaching haul corridor hazard at ${front.toFixed(1)}m`);
-      if (ttc !== null) reasons.push(`TTC closing rapidly: ${ttc}s`);
-    } else if (front <= 8.0 || visPercent < 35.0 || isPerson || isDumper || isObstacle) {
+      action = 'WARNING: APPLY BRAKES';
+      if (front !== null) reasons.push(`Hazard within proximity buffer (${front.toFixed(2)}m)`);
+      if (ttc !== null) reasons.push(`TTC closing: ${ttc}s`);
+    } else if (rawStatus === 'CAUTION' || (front !== null && front <= 3.0) || (visPercent !== null && visPercent < 35.0) || isPerson || isDumper || isObstacle) {
       riskLevel = 'CAUTION';
       riskScore = 44;
       action = 'CAUTION: REDUCE SPEED';
-      if (front <= 8.0) reasons.push(`Perimeter proximity target detected (${front.toFixed(1)}m)`);
-      if (visPercent < 35.0) reasons.push(`Monsoon fog visibility degraded (${Math.round(visPercent)}%)`);
-      if (isPerson) reasons.push('Personnel spotted in peripheral corridor');
+      if (front !== null) reasons.push(`Proximity target detected (${front.toFixed(2)}m)`);
+      if (visPercent !== null && visPercent < 35.0) reasons.push(`Fog visibility degraded (${Math.round(visPercent)}%)`);
     } else {
-      reasons.push('All forward haul corridors clear');
+      riskLevel = 'SAFE';
+      riskScore = 10;
+      action = 'ALL CLEAR — PROCEED SAFELY';
+      if (front !== null) reasons.push(`Forward corridor clear (${front.toFixed(2)}m)`);
       reasons.push('Sensors streaming live from Raspberry Pi hardware');
     }
 

@@ -40,6 +40,16 @@ export const HeroRiskPanel: React.FC<HeroRiskPanelProps> = ({ risk, gsm }) => {
           icon: AlertTriangle,
           actionColor: 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50',
         };
+      case 'OFFLINE':
+        return {
+          bg: 'bg-slate-900/60',
+          border: 'border-slate-700',
+          text: 'text-slate-400',
+          badgeBg: 'bg-slate-700',
+          badgeText: 'text-white',
+          icon: ShieldCheck,
+          actionColor: 'bg-slate-800 text-slate-300 border border-slate-700',
+        };
       case 'SAFE':
       default:
         return {

@@ -22,6 +22,8 @@ export const FleetOverview: React.FC<FleetOverviewProps> = ({ currentRiskLevel }
         return 'bg-amber-500 text-black';
       case 'CAUTION':
         return 'bg-yellow-500 text-black';
+      case 'OFFLINE':
+        return 'bg-slate-700 text-slate-300';
       case 'SAFE':
       default:
         return 'bg-emerald-500 text-black';
@@ -81,14 +83,22 @@ export const FleetOverview: React.FC<FleetOverviewProps> = ({ currentRiskLevel }
                   </td>
                   <td className="py-3 px-3 text-slate-400">{veh.driver}</td>
                   <td className="py-3 px-3">
-                    <span className="inline-flex items-center space-x-1 text-[10px] text-emerald-400 font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span className={`inline-flex items-center space-x-1 text-[10px] font-bold ${
+                      veh.status === 'ACTIVE' ? 'text-emerald-400' : 'text-slate-500'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        veh.status === 'ACTIVE' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                      }`}></span>
                       <span>{veh.status}</span>
                     </span>
                   </td>
-                  <td className="py-3 px-3 font-bold text-slate-200">{veh.speed_kmh.toFixed(1)} km/h</td>
+                  <td className="py-3 px-3 font-bold text-slate-200">
+                    {veh.speed_kmh !== null && veh.speed_kmh !== undefined ? `${veh.speed_kmh.toFixed(1)} km/h` : 'N/A'}
+                  </td>
                   <td className="py-3 px-3 text-slate-400">{veh.location}</td>
-                  <td className="py-3 px-3 text-slate-400">{veh.payload_tons.toFixed(1)} T</td>
+                  <td className="py-3 px-3 text-slate-400">
+                    {veh.payload_tons !== null && veh.payload_tons !== undefined ? `${veh.payload_tons.toFixed(1)} T` : '0.0 T'}
+                  </td>
                   <td className="py-3 px-3">
                     <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-mono ${getRiskBadge(effectiveRisk)}`}>
                       {effectiveRisk}

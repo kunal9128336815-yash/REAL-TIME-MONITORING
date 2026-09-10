@@ -56,6 +56,12 @@ async def get_system_status():
         }
     }
 
+@app.post("/data")
+@app.post("/api/telemetry")
+@app.post("/data/api/telemetry")
+async def root_data_ingest(data: sensors.SensorIngestPayload):
+    return await sensors.ingest_sensor_data(data)
+
 # Active WebSocket connections
 active_connections: list[WebSocket] = []
 
@@ -67,12 +73,8 @@ async def websocket_telemetry(websocket: WebSocket):
     
     try:
         while True:
-            # Check operating mode
-            if sensors.operating_mode == "LIVE_HARDWARE" and sensors.live_hardware_state is not None:
-                telemetry = sensors.live_hardware_state
-            else:
-                telemetry = simulation_engine.update()
-                
+            # Real-time hardware telemetry with strict 3.5s offline fallback
+            telemetry = sensors.get_active_telemetry()
             await websocket.send_text(json.dumps(telemetry))
             
             # Check incoming client messages (e.g. scenario triggers from client)

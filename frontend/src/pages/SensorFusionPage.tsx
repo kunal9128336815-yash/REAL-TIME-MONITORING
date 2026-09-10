@@ -21,7 +21,7 @@ export const SensorFusionPage: React.FC = () => {
     {
       name: 'Ultrasonic Array (4-CH)',
       question: 'How far is it?',
-      output: `Front: ${telemetry.ultrasonic.front.toFixed(1)}m | Rear: ${telemetry.ultrasonic.rear.toFixed(1)}m`,
+      output: `Front: ${telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? telemetry.ultrasonic.front.toFixed(1) + 'm' : '---'} | Rear: ${telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? telemetry.ultrasonic.rear.toFixed(1) + 'm' : '---'}`,
       confidence: conf.ultrasonic,
       status: 'Unaffected by Fog',
       icon: Radio,
@@ -31,9 +31,9 @@ export const SensorFusionPage: React.FC = () => {
     {
       name: 'NEO-6M GNSS GPS',
       question: 'Where is the vehicle?',
-      output: `${telemetry.gps.speed_kmh.toFixed(1)} km/h | 8 Sats`,
+      output: `${telemetry.gps.speed_kmh !== null && telemetry.gps.speed_kmh > 0 ? telemetry.gps.speed_kmh.toFixed(1) + ' km/h' : '---'} | ${telemetry.gps.lat !== null ? 'Live Fix' : '---'}`,
       confidence: conf.gps,
-      status: '3D Fix Active',
+      status: telemetry.gps.lat !== null ? '3D Fix Active' : '---',
       icon: MapPin,
       color: 'text-blue-600',
       to: '/sensors/gps',
@@ -41,7 +41,7 @@ export const SensorFusionPage: React.FC = () => {
     {
       name: 'MPU6050 6-DOF IMU',
       question: 'How is it moving?',
-      output: `${telemetry.imu.acceleration_g.toFixed(2)}g | ${telemetry.imu.tilt_deg.toFixed(1)}° Tilt`,
+      output: `${telemetry.imu.acceleration_g !== null ? telemetry.imu.acceleration_g.toFixed(2) + 'g' : '---'} | ${telemetry.imu.tilt_deg !== null ? telemetry.imu.tilt_deg.toFixed(1) + '° Tilt' : '---'}`,
       confidence: conf.imu,
       status: telemetry.imu.motion_status,
       icon: Layers,

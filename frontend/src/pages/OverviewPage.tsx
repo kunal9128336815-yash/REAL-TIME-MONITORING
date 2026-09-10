@@ -52,6 +52,8 @@ export const OverviewPage: React.FC = () => {
         return 'bg-amber-50 text-amber-700 border-amber-200';
       case 'CAUTION':
         return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+      case 'OFFLINE':
+        return 'bg-slate-100 text-slate-600 border-slate-300';
       default:
         return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
@@ -118,16 +120,16 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-2 text-[11px] text-slate-500 mt-0.5">
-              <span className="font-mono font-medium text-slate-700" title={piUrl}>
+              <span className="font-mono font-medium text-slate-700">
                 {isPiConnected
-                  ? `Pi: 192.168.137.214:5000`
-                  : 'Target: 192.168.137.214:5000/data'}
+                  ? `Pi Link: 192.168.137.94 (LIVE STREAM)`
+                  : 'Feed Status: OFFLINE (Awaiting Hardware Feed)'}
               </span>
               <span>&bull;</span>
               <span className={isPiConnected ? 'text-emerald-700 font-semibold' : 'text-slate-500'}>
                 {isPiConnected
-                  ? `${piStatus.lastPingMs || '<30'}ms (${piStatus.sampleCount} pkts)`
-                  : 'Standby Simulation'}
+                  ? `${piStatus.lastPingMs || '<20'}ms (${piStatus.sampleCount} pkts)`
+                  : 'N/A — No Sensor Stream'}
               </span>
             </div>
           </div>
@@ -179,13 +181,17 @@ export const OverviewPage: React.FC = () => {
               <Maximize2 className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 mt-1 flex items-baseline space-x-1.5">
-              <span>01</span>
-              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                ACTIVE
+              <span>{isPiConnected ? '01' : '00'}</span>
+              <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${
+                isPiConnected
+                  ? 'text-emerald-600 bg-emerald-50 border-emerald-200'
+                  : 'text-slate-500 bg-slate-50 border-slate-200'
+              }`}>
+                {isPiConnected ? 'ACTIVE' : 'OFFLINE'}
               </span>
             </div>
             <span className="text-xs font-medium text-slate-500 flex items-center mt-1">
-              D-001 Live Hardware (3 Offline)
+              {isPiConnected ? 'D-001 Live Hardware (3 Offline)' : 'Awaiting Live Feed (Depot)'}
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
@@ -206,10 +212,10 @@ export const OverviewPage: React.FC = () => {
               <Maximize2 className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 mt-1">
-              {telemetry.gps.speed_kmh.toFixed(1)} <span className="text-xs font-normal font-sans text-slate-500">km/h</span>
+              {isPiConnected && telemetry.gps.speed_kmh !== null ? `${telemetry.gps.speed_kmh.toFixed(1)} km/h` : '---'}
             </div>
-            <span className="text-xs font-medium text-blue-600 group-hover:underline flex items-center mt-1">
-              {telemetry.imu.motion_status} <ArrowRight className="w-3 h-3 ml-1" />
+            <span className="text-xs font-medium text-slate-500 flex items-center mt-1">
+              {isPiConnected ? telemetry.imu.motion_status : 'OFFLINE'} <ArrowRight className="w-3 h-3 ml-1" />
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 group-hover:bg-slate-200 transition-colors">
@@ -232,17 +238,20 @@ export const OverviewPage: React.FC = () => {
             <div className={`text-xl sm:text-2xl font-bold font-mono mt-1 ${
               telemetry.risk.risk_level === 'CRITICAL' ? 'text-red-600' :
               telemetry.risk.risk_level === 'WARNING' ? 'text-amber-600' :
-              telemetry.risk.risk_level === 'CAUTION' ? 'text-yellow-600' : 'text-emerald-600'
+              telemetry.risk.risk_level === 'CAUTION' ? 'text-yellow-600' :
+              telemetry.risk.risk_level === 'OFFLINE' ? 'text-slate-500' : 'text-emerald-600'
             }`}>
               {telemetry.risk.risk_level}
             </div>
             <span className="text-xs text-slate-500 flex items-center mt-1">
-              Score: <strong className="ml-1 text-slate-800 font-mono">{telemetry.risk.risk_score}/100</strong>
+              Score: <strong className="ml-1 text-slate-800 font-mono">{telemetry.risk.risk_level === 'OFFLINE' ? 'N/A' : `${telemetry.risk.risk_score ?? 0}/100`}</strong>
             </span>
           </div>
           <div className={`p-2.5 rounded-lg border transition-colors ${
             telemetry.risk.risk_level === 'CRITICAL'
               ? 'bg-red-50 border-red-200 text-red-600'
+              : telemetry.risk.risk_level === 'OFFLINE'
+              ? 'bg-slate-100 border-slate-200 text-slate-500'
               : 'bg-emerald-50 border-emerald-200 text-emerald-600'
           }`}>
             <AlertTriangle className="w-5 h-5" />
@@ -286,10 +295,10 @@ export const OverviewPage: React.FC = () => {
               <Maximize2 className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <div className="text-2xl sm:text-3xl font-bold font-mono text-emerald-600 mt-1">
-              98%
+              {isPiConnected ? '100%' : 'OFFLINE'}
             </div>
             <span className="text-xs font-medium text-emerald-600 group-hover:underline flex items-center mt-1">
-              8/8 Subsystems <ArrowRight className="w-3 h-3 ml-1" />
+              {isPiConnected ? 'Live Sensor Pipeline' : 'Awaiting Pi Hardware'} <ArrowRight className="w-3 h-3 ml-1" />
             </span>
           </div>
           <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
@@ -341,10 +350,10 @@ export const OverviewPage: React.FC = () => {
                 Time to Collision (TTC)
               </span>
               <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-800 mt-1">
-                {telemetry.risk.ttc_seconds !== null ? `${telemetry.risk.ttc_seconds.toFixed(1)}s` : '> 8.0s'}
+                {telemetry.risk.ttc_seconds !== null ? `${telemetry.risk.ttc_seconds.toFixed(1)}s` : (telemetry.risk.risk_level === 'OFFLINE' ? 'N/A' : '> 8.0s')}
               </span>
               <span className="text-xs text-slate-500 mt-1">
-                Front Gap: <strong className="text-slate-800 font-mono">{telemetry.ultrasonic.front.toFixed(1)} m</strong>
+                Front Gap: <strong className="text-slate-800 font-mono">{telemetry.ultrasonic.front !== null ? `${telemetry.ultrasonic.front.toFixed(2)} m` : 'N/A'}</strong>
               </span>
             </div>
 
@@ -352,6 +361,8 @@ export const OverviewPage: React.FC = () => {
             <div className={`p-4 rounded-xl border flex flex-col justify-center items-center text-center ${
               telemetry.risk.risk_level === 'CRITICAL'
                 ? 'bg-red-50 border-red-300 text-red-800'
+                : telemetry.risk.risk_level === 'OFFLINE'
+                ? 'bg-slate-100 border-slate-300 text-slate-700'
                 : 'bg-blue-50 border-blue-200 text-blue-800'
             }`}>
               <span className="text-xs uppercase font-bold tracking-wider opacity-80">
@@ -360,8 +371,8 @@ export const OverviewPage: React.FC = () => {
               <span className="text-base sm:text-lg font-bold mt-1 leading-snug">
                 {telemetry.risk.risk_level === 'CRITICAL' ? '🛑 STOP VEHICLE' : telemetry.risk.action}
               </span>
-              <span className="text-xs mt-1 text-slate-600 font-medium">
-                Autonomous cabin buzzer active
+              <span className="text-xs mt-1 text-slate-500 font-medium">
+                {telemetry.risk.risk_level === 'OFFLINE' ? 'Awaiting active Raspberry Pi telemetry' : 'Autonomous cabin buzzer active'}
               </span>
             </div>
           </div>
@@ -433,19 +444,27 @@ export const OverviewPage: React.FC = () => {
           <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-center">
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[11px] font-bold text-slate-500 block uppercase">FRONT</span>
-              <span className="text-base font-bold font-mono text-blue-700">{telemetry.ultrasonic.front.toFixed(1)}m</span>
+              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                {telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? `${telemetry.ultrasonic.front.toFixed(2)}m` : '---'}
+              </span>
             </div>
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[11px] font-bold text-slate-500 block uppercase">REAR</span>
-              <span className="text-base font-bold font-mono text-slate-700">{telemetry.ultrasonic.rear.toFixed(1)}m</span>
+              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                {telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? `${telemetry.ultrasonic.rear.toFixed(1)}m` : '---'}
+              </span>
             </div>
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[11px] font-bold text-slate-500 block uppercase">LEFT</span>
-              <span className="text-base font-bold font-mono text-slate-700">{telemetry.ultrasonic.left.toFixed(1)}m</span>
+              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                {telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? `${telemetry.ultrasonic.left.toFixed(1)}m` : '---'}
+              </span>
             </div>
             <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[11px] font-bold text-slate-500 block uppercase">RIGHT</span>
-              <span className="text-base font-bold font-mono text-slate-700">{telemetry.ultrasonic.right.toFixed(1)}m</span>
+              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                {telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? `${telemetry.ultrasonic.right.toFixed(1)}m` : '---'}
+              </span>
             </div>
           </div>
         </div>

@@ -31,8 +31,8 @@ class Settings(BaseModel):
     demo_mode: bool = True
     
     # Raspberry Pi 4 Hardware Endpoint
-    pi_endpoint_url: str = os.getenv("PI_ENDPOINT_URL", "http://192.168.137.214:5000/data")
-    pi_polling_enabled: bool = True
+    pi_endpoint_url: str = os.getenv("PI_ENDPOINT_URL", "http://192.168.137.94:5000/data")
+    pi_polling_enabled: bool = False  # Disabled because Pi pushes directly to laptop on port 8000
     pi_polling_interval_sec: float = 0.35
 
 settings = Settings()

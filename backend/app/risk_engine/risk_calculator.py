@@ -47,13 +47,20 @@ def evaluate_collision_risk(
     Calculates Time-To-Collision (TTC), severity level, actionable directive,
     and detailed explainability breakdown for judges and operators.
     """
-    front_dist = ultrasonic_distances.get("front", 15.0)
-    rear_dist = ultrasonic_distances.get("rear", 15.0)
-    left_dist = ultrasonic_distances.get("left", 10.0)
-    right_dist = ultrasonic_distances.get("right", 10.0)
+    f_d = ultrasonic_distances.get("front")
+    r_d = ultrasonic_distances.get("rear")
+    l_d = ultrasonic_distances.get("left")
+    rg_d = ultrasonic_distances.get("right")
+
+    front_dist = f_d if f_d is not None and f_d > 0 else 99.0
+    rear_dist = r_d if r_d is not None and r_d > 0 else 99.0
+    left_dist = l_d if l_d is not None and l_d > 0 else 99.0
+    right_dist = rg_d if rg_d is not None and rg_d > 0 else 99.0
     
-    min_flank_dist = min(left_dist, right_dist)
-    min_dist = min(front_dist, rear_dist, left_dist, right_dist)
+    valid_dists = [d for d in [f_d, r_d, l_d, rg_d] if d is not None and d > 0]
+    flank_dists = [d for d in [l_d, rg_d] if d is not None and d > 0]
+    min_flank_dist = min(flank_dists) if flank_dists else 99.0
+    min_dist = min(valid_dists) if valid_dists else 99.0
     
     # Convert vehicle speed km/h to m/s
     speed_ms = vehicle_speed_kmh * (1000.0 / 3600.0)
@@ -151,9 +158,19 @@ def evaluate_collision_risk(
     driver_confidence = 0.0
         
     sensor_conf = calculate_sensor_confidence(visibility_percent)
+
+    score_map = {
+        "CRITICAL": 92,
+        "WARNING": 68,
+        "CAUTION": 40,
+        "SAFE": 12,
+        "OFFLINE": 0
+    }
+    risk_score = score_map.get(risk_level, 0)
     
     return {
         "risk_level": risk_level,
+        "risk_score": risk_score,
         "action": action,
         "ttc_seconds": round(ttc, 1) if ttc is not None else None,
         "hazard_summary": hazard_summary,

@@ -81,7 +81,8 @@ export const SystemHealthPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {hardwareNodes.map((node, i) => {
             const Icon = node.icon;
-            const isOnline = node.status.includes('ONLINE') || node.status.includes('LOCKED') || node.status.includes('RUNNING') || node.status.includes('CONNECTED');
+            const isUnused = node.status.includes('---') || node.status.includes('NOT EQUIPPED') || node.status === '---';
+            const isOnline = !isUnused && (node.status.includes('ONLINE') || node.status.includes('LOCKED') || node.status.includes('RUNNING') || node.status.includes('CONNECTED'));
             return (
               <Link
                 key={i}
@@ -101,7 +102,9 @@ export const SystemHealthPage: React.FC = () => {
                 </div>
 
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border ${
-                  isOnline
+                  isUnused
+                    ? 'bg-slate-100 border-slate-200 text-slate-500 font-mono'
+                    : isOnline
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                     : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}>

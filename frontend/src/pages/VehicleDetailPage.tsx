@@ -27,13 +27,15 @@ export const VehicleDetailPage: React.FC = () => {
   const id = vehicleId || 'D-001';
   const isPrimary = id === 'D-001';
 
-  // For D-001 we use the real-time simulation/hardware state; for others contextual data
+  const isLive = telemetry.mode === 'LIVE_HARDWARE';
+
+  // For D-001 we use the real-time hardware state; for others contextual parked data
   const vehicleData = isPrimary
     ? {
         id: 'D-001',
-        name: 'CAT 777E Mining Haul Truck (Unit D-001)',
+        name: 'CAT 777E Mining Haul Truck (Unit D-001 - Active Hardware Rig)',
         driver: 'Ramesh Kumar (Lic #MIN-7819)',
-        status: 'ACTIVE ON HAUL ROAD',
+        status: isLive ? 'ACTIVE ON HAUL ROAD' : 'OFFLINE (WAITING FOR PI FEED)',
         speed: telemetry.gps.speed_kmh,
         heading: telemetry.gps.heading_deg,
         lat: telemetry.gps.lat,
@@ -45,36 +47,33 @@ export const VehicleDetailPage: React.FC = () => {
         action: telemetry.risk.action,
         ultrasonic: telemetry.ultrasonic,
         imu: telemetry.imu,
-        opticalFlow: { status: 'ONLINE', vx: 0.12, vy: 0.04, trackingQuality: 92 },
+        opticalFlow: isLive
+          ? { status: 'ONLINE', vx: 0.05, vy: 0.02, trackingQuality: 92 }
+          : { status: 'OFFLINE', vx: null, vy: null, trackingQuality: 0 },
         driverSafety: telemetry.risk.driver_safety,
         detections: telemetry.vision.detections,
-        sector: 'Pit Ramp Incline Bench 3',
+        sector: isLive ? 'Pit Ramp Incline Bench 3' : 'Test Rig (Bench)',
       }
     : {
         id: id,
         name: `CAT 777E Dumper ${id}`,
         driver: id === 'D-002' ? 'Vikram Singh' : id === 'D-003' ? 'Anil Sharma' : 'Mohd. Salim',
-        status: 'ACTIVE RUNNING',
-        speed: id === 'D-002' ? 9.8 : id === 'D-003' ? 14.2 : 6.2,
-        heading: 142.5,
-        lat: 22.7214,
-        lon: 75.8601,
-        visibility: id === 'D-002' ? 34 : id === 'D-003' ? 71 : 28,
-        riskLevel: id === 'D-002' ? 'WARNING' : id === 'D-003' ? 'SAFE' : 'CRITICAL',
-        riskScore: id === 'D-002' ? 68 : id === 'D-003' ? 18 : 89,
-        ttc: id === 'D-002' ? 3.2 : id === 'D-003' ? 9.4 : 1.4,
-        action:
-          id === 'D-004'
-            ? 'STOP VEHICLE IMMEDIATELY'
-            : id === 'D-002'
-            ? 'APPLY BRAKES — REDUCE SPEED'
-            : 'ALL CLEAR',
-        ultrasonic: { front: id === 'D-004' ? 2.8 : 5.8, rear: 14.2, left: 4.1, right: 5.6 },
-        imu: { acceleration_g: 0.38, tilt_deg: 2.4, motion_status: 'FORWARD_MOTION' },
-        opticalFlow: { status: 'ONLINE', vx: 0.08, vy: 0.02, trackingQuality: 88 },
-        driverSafety: { status: 'SAFE', distraction_detected: false, earphone_confidence: 0, message: 'Driver attentive' },
+        status: 'OFFLINE (PARKED IN DEPOT)',
+        speed: null,
+        heading: null,
+        lat: null,
+        lon: null,
+        visibility: null,
+        riskLevel: 'OFFLINE' as const,
+        riskScore: null,
+        ttc: null,
+        action: 'STANDBY -- PARKED IN DEPOT',
+        ultrasonic: { front: 0, rear: 0, left: 0, right: 0 },
+        imu: { acceleration_g: 0, tilt_deg: 0, motion_status: 'STATIONARY' },
+        opticalFlow: { status: 'OFFLINE', vx: null, vy: null, trackingQuality: 0 },
+        driverSafety: { status: 'OFFLINE', distraction_detected: false, earphone_confidence: 0, message: 'Vehicle offline in depot' },
         detections: [],
-        sector: 'Pit Access Haul Road',
+        sector: id === 'D-002' ? 'Maintenance Bay 3' : id === 'D-003' ? 'South Fueling Station' : 'Workshop Bay 1',
       };
 
   const getRiskColor = (level: string) => {
@@ -85,6 +84,8 @@ export const VehicleDetailPage: React.FC = () => {
         return 'text-amber-800 bg-amber-50 border-amber-300';
       case 'CAUTION':
         return 'text-yellow-800 bg-yellow-50 border-yellow-300';
+      case 'OFFLINE':
+        return 'text-slate-500 bg-slate-100 border-slate-300';
       default:
         return 'text-emerald-700 bg-emerald-50 border-emerald-300';
     }
@@ -165,36 +166,36 @@ export const VehicleDetailPage: React.FC = () => {
             <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[10px] text-slate-500 uppercase font-semibold block">FRONT</span>
               <span className={`text-base font-bold font-mono ${
-                vehicleData.ultrasonic.front <= 2.5 ? 'text-red-600' :
-                vehicleData.ultrasonic.front <= 4.5 ? 'text-amber-600' : 'text-slate-900'
+                vehicleData.ultrasonic.front !== null && vehicleData.ultrasonic.front <= 2.5 ? 'text-red-600' :
+                vehicleData.ultrasonic.front !== null && vehicleData.ultrasonic.front <= 4.5 ? 'text-amber-600' : 'text-slate-900'
               }`}>
-                {vehicleData.ultrasonic.front.toFixed(1)} m
+                {vehicleData.ultrasonic.front !== null && vehicleData.ultrasonic.front > 0 ? `${vehicleData.ultrasonic.front.toFixed(2)} m` : '---'}
               </span>
-              <span className="text-[10px] text-slate-400 block">Pulse: 18ms</span>
+              <span className="text-[10px] text-slate-400 block">{vehicleData.ultrasonic.front !== null && vehicleData.ultrasonic.front > 0 ? 'HC-SR04 Active' : '---'}</span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[10px] text-slate-500 uppercase font-semibold block">REAR</span>
-              <span className="text-base font-bold font-mono text-slate-900">
-                {vehicleData.ultrasonic.rear.toFixed(1)} m
+              <span className="text-base font-bold font-mono text-slate-700">
+                {vehicleData.ultrasonic.rear !== null && vehicleData.ultrasonic.rear > 0 ? `${vehicleData.ultrasonic.rear.toFixed(1)} m` : '---'}
               </span>
-              <span className="text-[10px] text-emerald-600 font-medium block">Clear</span>
+              <span className="text-[10px] text-slate-400 font-medium block">{vehicleData.ultrasonic.rear !== null && vehicleData.ultrasonic.rear > 0 ? 'Clear' : '--- (Unused)'}</span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[10px] text-slate-500 uppercase font-semibold block">LEFT</span>
-              <span className="text-base font-bold font-mono text-slate-900">
-                {vehicleData.ultrasonic.left.toFixed(1)} m
+              <span className="text-base font-bold font-mono text-slate-700">
+                {vehicleData.ultrasonic.left !== null && vehicleData.ultrasonic.left > 0 ? `${vehicleData.ultrasonic.left.toFixed(1)} m` : '---'}
               </span>
-              <span className="text-[10px] text-slate-400 block">Nominal</span>
+              <span className="text-[10px] text-slate-400 block">{vehicleData.ultrasonic.left !== null && vehicleData.ultrasonic.left > 0 ? 'Nominal' : '--- (Unused)'}</span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
               <span className="text-[10px] text-slate-500 uppercase font-semibold block">RIGHT</span>
-              <span className="text-base font-bold font-mono text-slate-900">
-                {vehicleData.ultrasonic.right.toFixed(1)} m
+              <span className="text-base font-bold font-mono text-slate-700">
+                {vehicleData.ultrasonic.right !== null && vehicleData.ultrasonic.right > 0 ? `${vehicleData.ultrasonic.right.toFixed(1)} m` : '---'}
               </span>
-              <span className="text-[10px] text-slate-400 block">Nominal</span>
+              <span className="text-[10px] text-slate-400 block">{vehicleData.ultrasonic.right !== null && vehicleData.ultrasonic.right > 0 ? 'Nominal' : '--- (Unused)'}</span>
             </div>
           </div>
         </div>
@@ -219,13 +220,13 @@ export const VehicleDetailPage: React.FC = () => {
               <div className={`p-3 rounded-lg border ${getRiskColor(vehicleData.riskLevel)}`}>
                 <span className="text-[10px] uppercase font-bold opacity-80 block">RISK LEVEL</span>
                 <span className="text-xl sm:text-2xl font-black">{vehicleData.riskLevel}</span>
-                <span className="text-xs font-mono block opacity-90 font-semibold">{vehicleData.riskScore} / 100</span>
+                <span className="text-xs font-mono block opacity-90 font-semibold">{vehicleData.riskScore !== null ? `${vehicleData.riskScore} / 100` : '--'}</span>
               </div>
 
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">TIME TO COLLISION</span>
                 <span className="text-xl sm:text-2xl font-black font-mono text-slate-900">
-                  {vehicleData.ttc !== null ? `${vehicleData.ttc.toFixed(1)}s` : '> 8.0s'}
+                  {vehicleData.ttc !== null ? `${vehicleData.ttc.toFixed(1)}s` : (isLive ? '> 8.0s' : 'N/A')}
                 </span>
                 <span className="text-[10px] text-slate-500 block">Kinematic TTC</span>
               </div>
@@ -249,23 +250,31 @@ export const VehicleDetailPage: React.FC = () => {
               <div className="text-xs space-y-1.5 text-slate-600">
                 <div className="flex justify-between">
                   <span>Speed:</span>
-                  <span className="text-slate-900 font-bold font-mono">{vehicleData.speed.toFixed(1)} km/h</span>
+                  <span className="text-slate-900 font-bold font-mono">
+                    {vehicleData.speed !== null ? `${vehicleData.speed.toFixed(1)} km/h` : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Heading:</span>
-                  <span className="text-slate-900 font-mono">{vehicleData.heading.toFixed(1)}°</span>
+                  <span className="text-slate-900 font-mono">
+                    {vehicleData.heading !== null ? `${vehicleData.heading.toFixed(1)}°` : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Latitude:</span>
-                  <span className="text-slate-800 font-mono">{vehicleData.lat.toFixed(6)}° N</span>
+                  <span className="text-slate-800 font-mono">
+                    {vehicleData.lat !== null ? `${vehicleData.lat.toFixed(6)}° N` : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Longitude:</span>
-                  <span className="text-slate-800 font-mono">{vehicleData.lon.toFixed(6)}° E</span>
+                  <span className="text-slate-800 font-mono">
+                    {vehicleData.lon !== null ? `${vehicleData.lon.toFixed(6)}° E` : 'N/A'}
+                  </span>
                 </div>
               </div>
               <div className="pt-1 text-[11px] text-slate-400 font-medium">
-                GNSS NEO-6M 8-sat 3D lock
+                {isLive && vehicleData.lat !== null ? 'GNSS NEO-6M 8-sat 3D lock' : 'GNSS Standby (No Fix)'}
               </div>
             </div>
 
@@ -277,15 +286,21 @@ export const VehicleDetailPage: React.FC = () => {
               <div className="text-xs space-y-1.5 text-slate-600">
                 <div className="flex justify-between">
                   <span>Acceleration:</span>
-                  <span className="text-slate-900 font-bold font-mono">{vehicleData.imu.acceleration_g.toFixed(2)} g</span>
+                  <span className="text-slate-900 font-bold font-mono">
+                    {vehicleData.imu.acceleration_g !== null ? `${vehicleData.imu.acceleration_g.toFixed(2)} g` : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Pit Incline/Tilt:</span>
-                  <span className="text-slate-900 font-mono">{vehicleData.imu.tilt_deg.toFixed(1)}°</span>
+                  <span className="text-slate-900 font-mono">
+                    {vehicleData.imu.tilt_deg !== null ? `${vehicleData.imu.tilt_deg.toFixed(1)}°` : 'N/A'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Optical Flow:</span>
-                  <span className="text-emerald-700 font-bold">ONLINE (92%)</span>
+                  <span className={vehicleData.opticalFlow.status === 'ONLINE' ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
+                    {vehicleData.opticalFlow.status}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Motion Mode:</span>
@@ -293,7 +308,7 @@ export const VehicleDetailPage: React.FC = () => {
                 </div>
               </div>
               <div className="pt-1 text-[11px] text-slate-400 font-medium">
-                MPU6050 6-DOF sensor fusion
+                {isLive ? 'Kinematic motion fusion active' : 'Motion sensors standby'}
               </div>
             </div>
           </div>
@@ -345,12 +360,12 @@ export const VehicleDetailPage: React.FC = () => {
         <div className="h-[280px] rounded-lg overflow-hidden border border-slate-200">
           <GpsTrackingMap
             gps={{
-              lat: vehicleData.lat,
-              lon: vehicleData.lon,
-              speed_kmh: vehicleData.speed,
-              heading_deg: vehicleData.heading,
-              fix_status: '3D_FIX',
-            }}
+              lat: vehicleData.lat ?? 0,
+              lon: vehicleData.lon ?? 0,
+              speed_kmh: vehicleData.speed ?? 0,
+              heading: vehicleData.heading ?? 0,
+              fix_status: vehicleData.lat !== null ? '3D_FIX' : 'OFFLINE',
+            } as any}
             ultrasonic={vehicleData.ultrasonic}
             hazardDetected={vehicleData.riskLevel === 'CRITICAL'}
           />

@@ -8,21 +8,23 @@ export const FleetPage: React.FC = () => {
   const navigate = useNavigate();
   const { telemetry } = useTelemetryContext();
 
+  const isLive = telemetry.mode === 'LIVE_HARDWARE';
+
   const vehicles = [
     {
       id: 'D-001',
       name: 'Dumper D-001 (Active Hardware Rig)',
       driver: 'Ramesh Kumar (ID #849)',
-      status: 'ACTIVE',
-      speed: `${telemetry.gps.speed_kmh.toFixed(1)} km/h`,
+      status: isLive ? 'ACTIVE' : 'OFFLINE',
+      speed: telemetry.gps.speed_kmh !== null ? `${telemetry.gps.speed_kmh.toFixed(1)} km/h` : 'N/A',
       risk: telemetry.risk.risk_level,
-      riskScore: telemetry.risk.risk_score,
-      visibility: `${Math.round(telemetry.visibility.index_percent)}%`,
-      ttc: telemetry.risk.ttc_seconds !== null ? `${telemetry.risk.ttc_seconds.toFixed(1)}s` : '> 8.0s',
-      gps: telemetry.gps.fix_status,
-      connection: 'ONLINE (ESP32 + Pi 4)',
-      payload: '85.4 Tons',
-      sector: 'Pit Alpha - Haul Road 2',
+      riskScore: telemetry.risk.risk_score !== null ? telemetry.risk.risk_score : '--',
+      visibility: telemetry.visibility.index_percent !== null ? `${Math.round(telemetry.visibility.index_percent)}%` : 'N/A',
+      ttc: telemetry.risk.ttc_seconds !== null ? `${telemetry.risk.ttc_seconds.toFixed(1)}s` : (isLive ? '> 8.0s' : 'N/A'),
+      gps: telemetry.gps.fix_status || (isLive ? '3D_FIX' : 'NO_FIX'),
+      connection: isLive ? 'ONLINE (ESP32 + Pi 4)' : 'OFFLINE (Waiting for Pi Feed)',
+      payload: isLive ? '85.4 Tons' : '0.0 Tons',
+      sector: isLive ? 'Pit Alpha - Haul Road 2' : 'Test Rig (Bench)',
       isPrimary: true,
     },
     {
@@ -32,9 +34,9 @@ export const FleetPage: React.FC = () => {
       status: 'OFFLINE',
       speed: '0.0 km/h',
       risk: 'SAFE',
-      riskScore: 0,
-      visibility: '--',
-      ttc: '--',
+      riskScore: '--',
+      visibility: 'N/A',
+      ttc: 'N/A',
       gps: 'STANDBY',
       connection: 'OFFLINE (Parked in Depot)',
       payload: '0.0 Tons',
@@ -48,9 +50,9 @@ export const FleetPage: React.FC = () => {
       status: 'OFFLINE',
       speed: '0.0 km/h',
       risk: 'SAFE',
-      riskScore: 0,
-      visibility: '--',
-      ttc: '--',
+      riskScore: '--',
+      visibility: 'N/A',
+      ttc: 'N/A',
       gps: 'STANDBY',
       connection: 'OFFLINE (Parked in Depot)',
       payload: '0.0 Tons',
@@ -64,9 +66,9 @@ export const FleetPage: React.FC = () => {
       status: 'OFFLINE',
       speed: '0.0 km/h',
       risk: 'SAFE',
-      riskScore: 0,
-      visibility: '--',
-      ttc: '--',
+      riskScore: '--',
+      visibility: 'N/A',
+      ttc: 'N/A',
       gps: 'STANDBY',
       connection: 'OFFLINE (Parked in Depot)',
       payload: '0.0 Tons',
@@ -83,6 +85,8 @@ export const FleetPage: React.FC = () => {
         return 'text-amber-700 bg-amber-50 border-amber-200';
       case 'CAUTION':
         return 'text-yellow-800 bg-yellow-50 border-yellow-200';
+      case 'OFFLINE':
+        return 'text-slate-500 bg-slate-100 border-slate-200';
       default:
         return 'text-emerald-700 bg-emerald-50 border-emerald-200';
     }

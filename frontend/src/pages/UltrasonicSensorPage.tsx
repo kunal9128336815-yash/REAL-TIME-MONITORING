@@ -8,11 +8,13 @@ export const UltrasonicSensorPage: React.FC = () => {
   const us = telemetry.ultrasonic;
 
   const channels = [
-    { label: 'Front Sensor (CH-1)', distance: us.front, status: 'Active', zone: 'Primary Trajectory Corridor' },
-    { label: 'Rear Sensor (CH-2)', distance: us.rear, status: 'Active', zone: 'Reverse Haul Blind Spot' },
-    { label: 'Left Flank (CH-3)', distance: us.left, status: 'Active', zone: 'Highwall / Berm Clearance' },
-    { label: 'Right Flank (CH-4)', distance: us.right, status: 'Active', zone: 'Passing / Pit Wall Clearance' },
+    { label: 'Front Sensor (CH-1)', distance: us.front, isEquipped: us.front !== null && us.front > 0, zone: 'Primary Trajectory Corridor (Active)' },
+    { label: 'Rear Sensor (CH-2)', distance: us.rear, isEquipped: us.rear !== null && us.rear > 0, zone: 'Reverse Haul Blind Spot' },
+    { label: 'Left Flank (CH-3)', distance: us.left, isEquipped: us.left !== null && us.left > 0, zone: 'Highwall / Berm Clearance' },
+    { label: 'Right Flank (CH-4)', distance: us.right, isEquipped: us.right !== null && us.right > 0, zone: 'Passing / Pit Wall Clearance' },
   ];
+
+  const activeCount = channels.filter(c => c.isEquipped).length;
 
   return (
     <div className="space-y-4 font-sans pb-6">
@@ -29,9 +31,11 @@ export const UltrasonicSensorPage: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>4 / 4 Channels Active</span>
+          <span className={`px-3 py-1.5 rounded-lg border font-semibold flex items-center space-x-1.5 ${
+            activeCount > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-slate-50 border-slate-200 text-slate-600'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${activeCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            <span>{activeCount} / 4 Channels Active {activeCount === 1 ? '(Front Live Hardware)' : ''}</span>
           </span>
         </div>
       </div>
@@ -44,40 +48,55 @@ export const UltrasonicSensorPage: React.FC = () => {
             Industrial Acoustic Sensor Architecture (ISO 21815-2 & EMESRT Level 9):
           </strong>
           <p className="text-slate-600 text-[11px] leading-relaxed mt-0.5">
-            Heavy-duty IP68 sealed 40 kHz ultrasonic transceivers providing zero-blindspot perimeter sensing (0.2m – 5.0m). Unlike optical sensors that suffer Rayleigh scattering in dense monsoon fog, acoustic pressure waves maintain 100% transmission in zero-visibility conditions, forming the foundational fail-safe layer for autonomous intervention.
+            Heavy-duty IP68 sealed 40 kHz ultrasonic transceivers providing zero-blindspot perimeter sensing (0.2m – 5.0m). Physical channels wired to Raspberry Pi GPIO render live millimetric ranges, while unequipped slots display clean '---' identifiers for transparent jury inspection.
           </p>
         </div>
       </div>
 
       {/* 4 Channels Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {channels.map((ch, i) => (
-          <div
-            key={i}
-            className="p-5 rounded-xl bg-white border border-slate-200 shadow-xs hover:border-blue-400 hover:shadow-md transition-all space-y-3"
-          >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span className="text-xs font-semibold text-slate-600">{ch.label}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Active</span>
-              </span>
-            </div>
-
-            <div className="text-center py-2">
-              <div className="text-4xl font-bold font-mono text-slate-900 tracking-tight">
-                {ch.distance.toFixed(1)} <span className="text-base font-normal font-sans text-slate-500">m</span>
+        {channels.map((ch, i) => {
+          const hasVal = ch.isEquipped && ch.distance !== null && ch.distance > 0;
+          return (
+            <div
+              key={i}
+              className={`p-5 rounded-xl bg-white border shadow-xs transition-all space-y-3 ${
+                hasVal ? 'border-blue-300 hover:border-blue-500 hover:shadow-md' : 'border-slate-200 opacity-90'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="text-xs font-semibold text-slate-700">{ch.label}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold flex items-center space-x-1 ${
+                  hasVal
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-slate-100 border-slate-200 text-slate-500'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${hasVal ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span>{hasVal ? 'Live Hardware' : '--- (Unused)'}</span>
+                </span>
               </div>
-              <span className="text-[11px] font-mono text-slate-500 block mt-1">
-                Round-trip echo: {(ch.distance * 2 / 343 * 1000).toFixed(1)} ms
-              </span>
-            </div>
 
-            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
-              {ch.zone}
+              <div className="text-center py-2">
+                <div className={`text-4xl font-bold font-mono tracking-tight ${hasVal ? 'text-blue-700' : 'text-slate-400'}`}>
+                  {hasVal && ch.distance !== null ? (
+                    <>
+                      {ch.distance.toFixed(2)} <span className="text-base font-normal font-sans text-slate-500">m</span>
+                    </>
+                  ) : (
+                    '---'
+                  )}
+                </div>
+                <span className="text-[11px] font-mono text-slate-500 block mt-1">
+                  {hasVal && ch.distance !== null ? `Round-trip echo: ${(ch.distance * 2 / 343 * 1000).toFixed(1)} ms` : 'Round-trip echo: ---'}
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-medium">
+                {ch.zone}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Physical Formula & Operating Principle */}

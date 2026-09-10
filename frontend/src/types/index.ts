@@ -1,4 +1,4 @@
-export type RiskLevel = 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL';
+export type RiskLevel = 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' | 'OFFLINE';
 
 export type DetailModalType = 
   | 'risk'
@@ -19,7 +19,8 @@ export type ScenarioType =
   | 'PERSON_ON_ROAD'
   | 'DUMPER_APPROACHING'
   | 'OBSTACLE_AHEAD'
-  | 'MULTI_HAZARD';
+  | 'MULTI_HAZARD'
+  | 'NO_HARDWARE_FEED';
 
 export interface GpsData {
   lat: number;
@@ -44,7 +45,7 @@ export interface ImuData {
 
 export interface VisibilityData {
   index_percent: number;
-  label: 'CLEAR' | 'LIGHT FOG' | 'MODERATE FOG' | 'DENSE FOG' | 'CRITICAL VISIBILITY';
+  label: 'CLEAR' | 'LIGHT FOG' | 'MODERATE FOG' | 'DENSE FOG' | 'CRITICAL VISIBILITY' | 'OFFLINE';
   optical_degraded: boolean;
   advisory: string;
 }
@@ -66,7 +67,7 @@ export interface VisionData {
 }
 
 export interface DriverSafetyData {
-  status: 'SAFE' | 'WARNING';
+  status: 'SAFE' | 'WARNING' | 'OFFLINE';
   distraction_detected: boolean;
   earphone_confidence: number;
   message: string;
@@ -112,7 +113,15 @@ export interface SystemHealthData {
   gsm_4g_sim: string;
   backend: string;
   database: string;
-  latency_ms: number;
+  latency_ms: number | null;
+}
+
+export interface DataIntegrityData {
+  valid: boolean;
+  status: string;
+  last_packet_age_sec?: number | null;
+  packet_count?: number;
+  warnings?: string[];
 }
 
 export interface GuidedDemoState {
@@ -126,8 +135,9 @@ export interface GuidedDemoState {
 export interface TelemetryState {
   vehicle_id: string;
   timestamp: string;
-  mode: 'DEMO_MODE' | 'LIVE_HARDWARE';
+  mode: 'DEMO_MODE' | 'LIVE_HARDWARE' | 'OFFLINE';
   scenario: ScenarioType | string;
+  online?: boolean;
   guided_demo: GuidedDemoState;
   gps: GpsData;
   ultrasonic: UltrasonicData;
@@ -137,6 +147,7 @@ export interface TelemetryState {
   risk: RiskData;
   gsm: GsmData;
   system_health: SystemHealthData;
+  data_integrity?: DataIntegrityData;
 }
 
 export interface AlertRecord {

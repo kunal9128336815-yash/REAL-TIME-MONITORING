@@ -5,7 +5,7 @@ import { Compass, Gauge } from 'lucide-react';
 interface VehicleDigitalTwinProps {
   ultrasonic: UltrasonicData;
   imu: ImuData;
-  speed: number;
+  speed: number | null;
 }
 
 export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
@@ -13,10 +13,11 @@ export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
   imu,
   speed,
 }) => {
-  const getZoneColor = (dist: number) => {
-    if (dist <= 2.5) return { text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', wave: 'text-red-600' };
-    if (dist <= 4.5) return { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', wave: 'text-amber-600' };
-    if (dist <= 8.0) return { text: 'text-yellow-800', bg: 'bg-yellow-50', border: 'border-yellow-300', wave: 'text-yellow-600' };
+  const getZoneColor = (dist: number | null) => {
+    if (dist === null || dist <= 0) return { text: 'text-slate-400', bg: 'bg-slate-100', border: 'border-slate-200', wave: 'text-slate-300' };
+    if (dist <= 0.5) return { text: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', wave: 'text-red-600' };
+    if (dist <= 1.5) return { text: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-300', wave: 'text-amber-600' };
+    if (dist <= 3.0) return { text: 'text-yellow-800', bg: 'bg-yellow-50', border: 'border-yellow-300', wave: 'text-yellow-600' };
     return { text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-300', wave: 'text-emerald-600' };
   };
 
@@ -46,11 +47,11 @@ export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
         <div className="flex items-center space-x-3 text-xs font-mono">
           <div className="flex items-center space-x-1 text-slate-700">
             <Gauge className="w-3.5 h-3.5 text-blue-600" />
-            <span className="font-semibold">{speed.toFixed(1)} km/h</span>
+            <span className="font-semibold">{speed !== null && speed > 0 ? `${speed.toFixed(1)} km/h` : '---'}</span>
           </div>
           <div className="flex items-center space-x-1 text-slate-700">
             <Compass className="w-3.5 h-3.5 text-blue-600" />
-            <span className="font-semibold">Tilt: {imu.tilt_deg}°</span>
+            <span className="font-semibold">{imu.tilt_deg !== null && imu.tilt_deg !== 0 ? `Tilt: ${imu.tilt_deg}°` : 'Tilt: ---'}</span>
           </div>
         </div>
       </div>
@@ -63,19 +64,21 @@ export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
           <div className={`px-3 py-1 rounded-md border ${frontZone.border} ${frontZone.bg} shadow-xs flex items-center space-x-2 transition-colors`}>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-600">Front:</span>
             <span className={`text-sm font-bold font-mono ${frontZone.text}`}>
-              {ultrasonic.front.toFixed(1)} m
+              {ultrasonic.front !== null && ultrasonic.front > 0 ? `${ultrasonic.front.toFixed(2)} m` : '---'}
             </span>
-            {ultrasonic.front <= 3.5 && (
+            {ultrasonic.front !== null && ultrasonic.front > 0 && ultrasonic.front <= 1.5 && (
               <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
             )}
           </div>
           {/* Animated sensing arc */}
-          <div className="mt-1 relative w-32 h-7 flex items-center justify-center overflow-hidden">
-            <svg viewBox="0 0 100 40" className={`w-full h-full ${frontZone.wave} transition-colors`}>
-              <path d="M 10 38 Q 50 5 90 38" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="4 2" className="animate-pulse" />
-              <path d="M 25 38 Q 50 18 75 38" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
-            </svg>
-          </div>
+          {ultrasonic.front !== null && ultrasonic.front > 0 && (
+            <div className="mt-1 relative w-32 h-7 flex items-center justify-center overflow-hidden">
+              <svg viewBox="0 0 100 40" className={`w-full h-full ${frontZone.wave} transition-colors`}>
+                <path d="M 10 38 Q 50 5 90 38" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="4 2" className="animate-pulse" />
+                <path d="M 25 38 Q 50 18 75 38" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="3 2" />
+              </svg>
+            </div>
+          )}
         </div>
 
         {/* LEFT SENSOR RADAR ZONE */}
@@ -83,7 +86,7 @@ export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
           <div className={`px-2.5 py-1 rounded-md border ${leftZone.border} ${leftZone.bg} shadow-xs flex flex-col items-center transition-colors`}>
             <span className="text-[9px] uppercase font-bold tracking-wider text-slate-600">Left</span>
             <span className={`text-xs font-bold font-mono ${leftZone.text}`}>
-              {ultrasonic.left.toFixed(1)} m
+              {ultrasonic.left !== null && ultrasonic.left > 0 ? `${ultrasonic.left.toFixed(1)} m` : '---'}
             </span>
           </div>
         </div>
@@ -93,22 +96,24 @@ export const VehicleDigitalTwin: React.FC<VehicleDigitalTwinProps> = ({
           <div className={`px-2.5 py-1 rounded-md border ${rightZone.border} ${rightZone.bg} shadow-xs flex flex-col items-center transition-colors`}>
             <span className="text-[9px] uppercase font-bold tracking-wider text-slate-600">Right</span>
             <span className={`text-xs font-bold font-mono ${rightZone.text}`}>
-              {ultrasonic.right.toFixed(1)} m
+              {ultrasonic.right !== null && ultrasonic.right > 0 ? `${ultrasonic.right.toFixed(1)} m` : '---'}
             </span>
           </div>
         </div>
 
         {/* REAR SENSOR RADAR ZONE */}
         <div className="absolute bottom-2 flex flex-col items-center z-20">
-          <div className="mb-1 relative w-32 h-5 flex items-center justify-center overflow-hidden">
-            <svg viewBox="0 0 100 30" className={`w-full h-full ${rearZone.wave} transition-colors`}>
-              <path d="M 15 2 Q 50 28 85 2" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2" />
-            </svg>
-          </div>
+          {ultrasonic.rear !== null && ultrasonic.rear > 0 && (
+            <div className="mb-1 relative w-32 h-5 flex items-center justify-center overflow-hidden">
+              <svg viewBox="0 0 100 30" className={`w-full h-full ${rearZone.wave} transition-colors`}>
+                <path d="M 15 2 Q 50 28 85 2" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2" />
+              </svg>
+            </div>
+          )}
           <div className={`px-3 py-1 rounded-md border ${rearZone.border} ${rearZone.bg} shadow-xs flex items-center space-x-2 transition-colors`}>
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-600">Rear:</span>
             <span className={`text-sm font-bold font-mono ${rearZone.text}`}>
-              {ultrasonic.rear.toFixed(1)} m
+              {ultrasonic.rear !== null && ultrasonic.rear > 0 ? `${ultrasonic.rear.toFixed(1)} m` : '---'}
             </span>
           </div>
         </div>

@@ -14,7 +14,8 @@ export const UltrasonicPanel: React.FC<UltrasonicPanelProps> = ({ ultrasonic }) 
     { id: 'right', label: 'US-RIGHT', name: 'Starboard Blind-Spot', dist: ultrasonic.right, maxDist: 10.0 },
   ];
 
-  const getStatus = (dist: number) => {
+  const getStatus = (dist: number | null) => {
+    if (dist === null) return { text: 'OFFLINE', color: 'text-slate-400', bg: 'bg-slate-900/60 border-slate-700', dot: 'bg-slate-600' };
     if (dist <= 2.5) return { text: 'CRITICAL', color: 'text-red-400', bg: 'bg-red-950/60 border-red-500/80', dot: 'bg-red-400' };
     if (dist <= 4.5) return { text: 'WARNING', color: 'text-amber-400', bg: 'bg-amber-950/60 border-amber-500/80', dot: 'bg-amber-400' };
     if (dist <= 8.0) return { text: 'CAUTION', color: 'text-yellow-400', bg: 'bg-yellow-950/40 border-yellow-500/60', dot: 'bg-yellow-400' };
@@ -31,9 +32,15 @@ export const UltrasonicPanel: React.FC<UltrasonicPanelProps> = ({ ultrasonic }) 
             ULTRASONIC PROXIMITY ARRAY
           </span>
         </div>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 font-mono flex items-center space-x-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span>4/4 NODES ACTIVE</span>
+        <span className={`text-[10px] px-2 py-0.5 rounded font-mono flex items-center space-x-1 border ${
+          ultrasonic.front !== null
+            ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400'
+            : 'bg-slate-900 border-slate-700 text-slate-400'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            ultrasonic.front !== null ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+          }`}></span>
+          <span>{ultrasonic.front !== null ? 'TRANSDUCER ONLINE' : 'ARRAY OFFLINE'}</span>
         </span>
       </div>
 
@@ -41,7 +48,7 @@ export const UltrasonicPanel: React.FC<UltrasonicPanelProps> = ({ ultrasonic }) 
       <div className="grid grid-cols-2 gap-3 my-3">
         {sensors.map((s) => {
           const status = getStatus(s.dist);
-          const percent = Math.min(100, (s.dist / s.maxDist) * 100);
+          const percent = s.dist !== null ? Math.min(100, (s.dist / s.maxDist) * 100) : 0;
 
           return (
             <div
@@ -59,7 +66,7 @@ export const UltrasonicPanel: React.FC<UltrasonicPanelProps> = ({ ultrasonic }) 
 
               <div className="my-2 flex items-baseline justify-between">
                 <span className="text-2xl font-black font-mono text-slate-100">
-                  {s.dist.toFixed(1)} <span className="text-xs font-normal text-slate-400">m</span>
+                  {s.dist !== null ? s.dist.toFixed(1) : '--'} <span className="text-xs font-normal text-slate-400">{s.dist !== null ? 'm' : ''}</span>
                 </span>
                 {/* Wave indicator */}
                 <div className="flex items-end space-x-0.5 h-4">

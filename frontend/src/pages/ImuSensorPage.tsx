@@ -7,9 +7,9 @@ export const ImuSensorPage: React.FC = () => {
   const imu = telemetry.imu;
 
   // Calculate pitch and roll angles for visual indicator
-  const pitch = imu.tilt_deg;
-  const roll = parseFloat((imu.tilt_deg * 0.4).toFixed(1));
-  const yaw = telemetry.gps.heading_deg;
+  const pitch = imu.tilt_deg ?? 0.0;
+  const roll = parseFloat(((imu.tilt_deg ?? 0.0) * 0.4).toFixed(1));
+  const yaw = telemetry.gps.heading_deg ?? 0.0;
 
   return (
     <div className="space-y-4 font-sans pb-6">
@@ -69,8 +69,8 @@ export const ImuSensorPage: React.FC = () => {
 
             {/* Incline Overlay Badge */}
             <div className="absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-white/95 backdrop-blur-sm border border-slate-200 text-xs shadow-md font-sans">
-              <span>Pitch: <strong className="text-blue-700 font-mono font-bold">{pitch}°</strong></span>
-              <span className="ml-3">Roll: <strong className="text-slate-800 font-mono font-bold">{roll}°</strong></span>
+              <span>Pitch: <strong className="text-blue-700 font-mono font-bold">{imu.tilt_deg !== null ? `${pitch}°` : '---'}</strong></span>
+              <span className="ml-3">Roll: <strong className="text-slate-800 font-mono font-bold">{imu.tilt_deg !== null ? `${roll}°` : '---'}</strong></span>
             </div>
           </div>
 
@@ -91,7 +91,7 @@ export const ImuSensorPage: React.FC = () => {
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
                 <span className="text-[10px] text-slate-500 uppercase font-semibold block">Net Acceleration</span>
                 <div className="text-xl font-bold font-mono text-blue-700">
-                  {imu.acceleration_g.toFixed(2)} g
+                  {imu.acceleration_g !== null ? `${imu.acceleration_g.toFixed(2)} g` : '---'}
                 </div>
                 <span className="text-[11px] text-slate-500 block">
                   Gravitational ref: 1.0g nominal
@@ -101,7 +101,7 @@ export const ImuSensorPage: React.FC = () => {
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
                 <span className="text-[10px] text-slate-500 uppercase font-semibold block">Pit Ramp Tilt</span>
                 <div className="text-xl font-bold font-mono text-slate-900">
-                  {imu.tilt_deg.toFixed(1)}°
+                  {imu.tilt_deg !== null ? `${imu.tilt_deg.toFixed(1)}°` : '---'}
                 </div>
                 <span className="text-[11px] text-slate-500 block">
                   Haul road bench incline
@@ -111,7 +111,7 @@ export const ImuSensorPage: React.FC = () => {
               <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
                 <span className="text-[10px] text-slate-500 uppercase font-semibold block">Yaw Azimuth</span>
                 <div className="text-xl font-bold font-mono text-slate-900">
-                  {yaw.toFixed(1)}°
+                  {telemetry.gps.heading_deg !== null ? `${yaw.toFixed(1)}°` : '---'}
                 </div>
                 <span className="text-[11px] text-slate-500 block">
                   Gyro drift compensated

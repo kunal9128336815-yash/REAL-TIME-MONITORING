@@ -17,13 +17,16 @@ export const VisibilityPanel: React.FC<VisibilityPanelProps> = ({ visibility }) 
         return 'bg-yellow-950/80 border-yellow-500 text-yellow-300';
       case 'LIGHT FOG':
         return 'bg-blue-950/60 border-blue-500/60 text-blue-300';
+      case 'OFFLINE':
+        return 'bg-slate-900 border-slate-700 text-slate-400';
       case 'CLEAR':
       default:
         return 'bg-emerald-950/60 border-emerald-500/60 text-emerald-300';
     }
   };
 
-  const getGaugeColor = (pct: number) => {
+  const getGaugeColor = (pct: number | null) => {
+    if (pct === null) return 'bg-slate-700';
     if (pct <= 25) return 'bg-gradient-to-r from-red-600 to-amber-600';
     if (pct <= 50) return 'bg-gradient-to-r from-amber-500 to-yellow-500';
     if (pct <= 75) return 'bg-gradient-to-r from-yellow-500 to-emerald-500';
@@ -52,7 +55,7 @@ export const VisibilityPanel: React.FC<VisibilityPanelProps> = ({ visibility }) 
             Monsoon Visibility Index:
           </span>
           <span className="text-2xl font-black font-mono text-cyan-300">
-            {visibility.index_percent.toFixed(0)}%
+            {visibility.index_percent !== null ? `${visibility.index_percent.toFixed(0)}%` : 'N/A'}
           </span>
         </div>
 
@@ -60,7 +63,7 @@ export const VisibilityPanel: React.FC<VisibilityPanelProps> = ({ visibility }) 
         <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden border border-slate-700/80 p-0.5">
           <div
             className={`h-full rounded-full transition-all duration-700 ${getGaugeColor(visibility.index_percent)}`}
-            style={{ width: `${visibility.index_percent}%` }}
+            style={{ width: `${visibility.index_percent ?? 0}%` }}
           ></div>
         </div>
 

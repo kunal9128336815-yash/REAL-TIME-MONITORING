@@ -88,7 +88,7 @@ export const CollisionSafetyPage: React.FC = () => {
             Minimum Distance
           </span>
           <span className="text-3xl font-extrabold font-mono text-blue-700 mt-1.5">
-            {frontDist.toFixed(1)} m
+            {frontDist !== null ? `${frontDist.toFixed(1)} m` : '---'}
           </span>
           <span className="text-xs text-slate-500 mt-1.5 font-medium">
             Ultrasonic Channel 1
@@ -140,12 +140,12 @@ export const CollisionSafetyPage: React.FC = () => {
           </div>
 
           <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
-            <span className="text-[10px] text-slate-500 font-semibold block uppercase">2. Measured Distance</span>
+            <span className="text-[10px] text-slate-500 font-semibold block uppercase">2. Proximity Zone</span>
             <div className="text-base font-bold font-mono text-blue-700">
-              {frontDist.toFixed(1)} meters
+              {frontDist !== null ? `${frontDist.toFixed(1)} m` : '---'}
             </div>
             <span className="text-xs text-slate-600 font-medium block">
-              {frontDist <= criticalDistThreshold ? 'Critical Proximity' : 'Nominal Clearance'}
+              Limit: &lt; {criticalDistThreshold.toFixed(1)}m
             </span>
           </div>
 
@@ -162,7 +162,7 @@ export const CollisionSafetyPage: React.FC = () => {
           <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
             <span className="text-[10px] text-slate-500 font-semibold block uppercase">4. Vehicle Motion</span>
             <div className="text-base font-bold font-mono text-slate-900">
-              {telemetry.gps.speed_kmh.toFixed(1)} km/h
+              {(telemetry.gps.speed_kmh ?? 0).toFixed(1)} km/h
             </div>
             <span className="text-xs text-slate-600 font-medium block">
               {isMoving ? 'Forward Motion' : 'Stationary'}

@@ -46,27 +46,39 @@ export const GpsSensorPage: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs hover:border-blue-400 transition-all">
           <span className="text-[11px] text-slate-500 uppercase font-semibold block">Latitude</span>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">{gps.lat.toFixed(6)}° N</div>
+          <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+            {gps.lat !== null ? `${gps.lat.toFixed(6)}° N` : '---'}
+          </div>
           <span className="text-[11px] text-slate-500 mt-1 block">WGS84 datum</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs hover:border-blue-400 transition-all">
           <span className="text-[11px] text-slate-500 uppercase font-semibold block">Longitude</span>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">{gps.lon.toFixed(6)}° E</div>
+          <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+            {gps.lon !== null ? `${gps.lon.toFixed(6)}° E` : '---'}
+          </div>
           <span className="text-[11px] text-slate-500 mt-1 block">WGS84 datum</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs hover:border-blue-400 transition-all">
           <span className="text-[11px] text-slate-500 uppercase font-semibold block">Ground Speed</span>
           <div className="text-xl font-bold font-mono text-blue-700 mt-1">
-            {gps.speed_kmh.toFixed(1)} <span className="text-xs font-normal font-sans text-slate-500">km/h</span>
+            {gps.speed_kmh !== null && gps.speed_kmh > 0 ? (
+              <>
+                {gps.speed_kmh.toFixed(1)} <span className="text-xs font-normal font-sans text-slate-500">km/h</span>
+              </>
+            ) : (
+              '---'
+            )}
           </div>
           <span className="text-[11px] text-slate-500 mt-1 block">Doppler velocity calculation</span>
         </div>
 
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs hover:border-blue-400 transition-all">
           <span className="text-[11px] text-slate-500 uppercase font-semibold block">Compass Bearing</span>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">{gps.heading_deg.toFixed(1)}°</div>
+          <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+            {gps.heading_deg !== null ? `${gps.heading_deg.toFixed(1)}°` : '---'}
+          </div>
           <span className="text-[11px] text-slate-500 mt-1 block">Azimuth from true north</span>
         </div>
       </div>

@@ -533,10 +533,108 @@ class ClientSimulationEngine {
         gsm_4g_sim: 'CONNECTED (4G LTE)',
         backend: 'ONLINE',
         database: 'ONLINE',
-        latency_ms: 14
+        latency_ms: 12
       }
     };
   }
 }
 
-export const clientSimulator = new ClientSimulationEngine();
+export const OFFLINE_TELEMETRY_STATE: TelemetryState = {
+  vehicle_id: 'DUMPER_01',
+  timestamp: '--:--:--',
+  mode: 'OFFLINE',
+  scenario: 'NO_HARDWARE_FEED',
+  guided_demo: { active: false, phase: 0, total_phases: 0 },
+  gps: {
+    lat: 0,
+    lon: 0,
+    speed_kmh: 0,
+    heading_deg: 0,
+    fix_status: 'OFFLINE',
+  },
+  ultrasonic: {
+    front: 0,
+    rear: 0,
+    left: 0,
+    right: 0,
+  },
+  imu: {
+    acceleration_g: 0,
+    tilt_deg: 0,
+    motion_status: 'OFFLINE',
+  },
+  visibility: {
+    index_percent: 0,
+    label: 'OFFLINE',
+    optical_degraded: false,
+    advisory: 'No active telemetry stream from Raspberry Pi',
+  },
+  vision: {
+    model: 'YOLOv8s-Mining-v2',
+    inference_status: 'OFFLINE',
+    fps: 0,
+    inference_time_ms: 0,
+    detections: [],
+  },
+  risk: {
+    risk_level: 'OFFLINE',
+    risk_score: 0,
+    action: 'SYSTEM STANDBY — NO PI DATA FEED',
+    ttc_seconds: null,
+    hazard_summary: 'Raspberry Pi hardware feed offline. Awaiting sensor packet...',
+    reasons: ['Raspberry Pi offline', 'No ultrasonic feed', 'No GPS lock'],
+    emergency_sms_required: false,
+    driver_safety: {
+      status: 'SAFE',
+      distraction_detected: false,
+      earphone_confidence: 0,
+      message: 'Monitoring offline',
+    },
+    sensor_confidence: {
+      camera: 0,
+      ultrasonic: 0,
+      gps: 0,
+      imu: 0,
+      gsm: 0,
+    },
+  },
+  gsm: {
+    online: false,
+    signal_dbm: -99,
+    csq: 0,
+    carrier: 'OFFLINE',
+    ip: 'N/A',
+    uplink_rate_kbps: 0,
+    sms_sent_count: 0,
+  },
+  system_health: {
+    raspberry_pi: 'OFFLINE',
+    pi_camera: 'OFFLINE',
+    yolo_engine: 'STANDBY',
+    ultrasonic_array: 'OFFLINE',
+    neo6m_gps: 'OFFLINE',
+    mpu6050_imu: 'OFFLINE',
+    gsm_4g_sim: 'OFFLINE',
+    backend: 'ONLINE',
+    database: 'ONLINE',
+    latency_ms: 0,
+  },
+};
+
+export const clientSimulator = {
+  tick: (): TelemetryState => OFFLINE_TELEMETRY_STATE,
+  setScenario: (_scenario?: ScenarioType) => {},
+  getScenario: () => 'NO_HARDWARE_FEED' as ScenarioType,
+  setRunning: (_running?: boolean) => {},
+  isRunning: () => false,
+  setSimSpeed: (_speed?: number) => {},
+  applyControl: (_action?: string, _speed?: number) => {},
+  setManualVisibility: (_vis?: number) => {},
+  clearManualVisibility: () => {},
+  startGuidedDemo: () => {},
+  pauseGuidedDemo: () => {},
+  resumeGuidedDemo: () => {},
+  skipGuidedDemoPhase: () => {},
+  restartGuidedDemo: () => {},
+  stopGuidedDemo: () => {},
+};

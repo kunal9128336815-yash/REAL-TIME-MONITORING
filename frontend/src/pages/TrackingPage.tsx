@@ -8,12 +8,20 @@ export const TrackingPage: React.FC = () => {
   const navigate = useNavigate();
   const { telemetry } = useTelemetryContext();
 
+  const isLive = telemetry.mode === 'LIVE_HARDWARE';
+
   const fleetRoster = [
-    { id: 'D-001', name: 'CAT 777E (Focus)', driver: 'R. Kumar', speed: `${telemetry.gps.speed_kmh.toFixed(1)} km/h`, risk: telemetry.risk.risk_level, color: 'text-blue-700' },
-    { id: 'D-002', name: 'Komatsu HD785', driver: 'M. Soren', speed: '10.4 km/h', risk: 'WARNING', color: 'text-amber-700' },
-    { id: 'D-003', name: 'CAT 777E', driver: 'A. Tirkey', speed: '16.8 km/h', risk: 'SAFE', color: 'text-emerald-700' },
-    { id: 'D-004', name: 'Terex TR100', driver: 'Mohd. Salim', speed: '7.2 km/h', risk: 'CAUTION', color: 'text-yellow-800' },
-    { id: 'PATROL-01', name: 'Safety Patrol Truck', driver: 'S. Verma', speed: '24.2 km/h', risk: 'SAFE', color: 'text-blue-600' },
+    {
+      id: 'D-001',
+      name: 'CAT 777E (Active Hardware Rig)',
+      driver: 'R. Kumar (ID #849)',
+      speed: telemetry.gps.speed_kmh !== null ? `${telemetry.gps.speed_kmh.toFixed(1)} km/h` : 'N/A',
+      risk: telemetry.risk.risk_level,
+      color: 'text-blue-700',
+    },
+    { id: 'D-002', name: 'Komatsu HD785 (Depot)', driver: 'M. Soren', speed: '0.0 km/h', risk: 'OFFLINE', color: 'text-slate-500' },
+    { id: 'D-003', name: 'CAT 777E (Depot)', driver: 'A. Tirkey', speed: '0.0 km/h', risk: 'OFFLINE', color: 'text-slate-500' },
+    { id: 'D-004', name: 'Terex TR100 (Depot)', driver: 'Mohd. Salim', speed: '0.0 km/h', risk: 'OFFLINE', color: 'text-slate-500' },
   ];
 
   return (
@@ -35,20 +43,24 @@ export const TrackingPage: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Real-time multi-vehicle GNSS tracking &bull; Defaulted to your live location &bull; 5 active dumpers and patrol units
+            Real-time multi-vehicle GNSS tracking &bull; 1 Active Hardware Unit (D-001) &bull; 3 Depot Standby Units
           </p>
         </div>
 
         <div className="flex items-center space-x-2 text-xs">
-          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center space-x-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>5 / 5 Vehicles Online</span>
+          <span className={`px-3 py-1.5 rounded-lg font-semibold flex items-center space-x-1.5 border ${
+            isLive
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-slate-100 border-slate-200 text-slate-600'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+            <span>{isLive ? '1 Active Rig Online (D-001)' : 'Hardware Rig Offline (Standby)'}</span>
           </span>
         </div>
       </div>
 
       {/* Live Fleet Quick Status Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         {fleetRoster.map((v) => (
           <div
             key={v.id}
@@ -57,7 +69,7 @@ export const TrackingPage: React.FC = () => {
             <div>
               <div className="flex items-center space-x-1.5">
                 <span className={`font-mono font-bold ${v.color}`}>{v.id}</span>
-                <span className="text-[11px] text-slate-500 truncate max-w-[90px]">{v.name}</span>
+                <span className="text-[11px] text-slate-500 truncate max-w-[120px]">{v.name}</span>
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">
                 <span className="font-mono font-semibold text-slate-700">{v.speed}</span> &bull; {v.driver}
@@ -67,6 +79,7 @@ export const TrackingPage: React.FC = () => {
               v.risk === 'CRITICAL' ? 'bg-red-50 border-red-200 text-red-700' :
               v.risk === 'WARNING' ? 'bg-amber-50 border-amber-200 text-amber-700' :
               v.risk === 'CAUTION' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+              v.risk === 'OFFLINE' ? 'bg-slate-100 border-slate-200 text-slate-500' :
               'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}>
               {v.risk}
@@ -95,10 +108,10 @@ export const TrackingPage: React.FC = () => {
             <span>Satellite Constellation</span>
           </div>
           <div className="text-base font-bold font-mono text-slate-900">
-            {telemetry.gps.fix_status}
+            {telemetry.gps.fix_status || (isLive ? '3D_FIX' : 'NO_FIX')}
           </div>
           <p className="text-[11px] text-slate-500">
-            NEO-6M GNSS &bull; 8 SVs in solution &bull; HDOP: 1.18
+            {isLive ? 'NEO-6M GNSS active tracking' : 'GNSS Standby (Awaiting Satellite Fix)'}
           </p>
         </div>
 
@@ -109,10 +122,10 @@ export const TrackingPage: React.FC = () => {
             <span>Ground Velocity & Heading</span>
           </div>
           <div className="text-base font-bold font-mono text-slate-900">
-            {telemetry.gps.speed_kmh.toFixed(1)} km/h &bull; {telemetry.gps.heading_deg.toFixed(1)}°
+            {telemetry.gps.speed_kmh !== null ? `${telemetry.gps.speed_kmh.toFixed(1)} km/h` : 'N/A'} &bull; {telemetry.gps.heading_deg !== null ? `${telemetry.gps.heading_deg.toFixed(1)}°` : 'N/A'}
           </div>
           <p className="text-[11px] text-slate-500">
-            Haul corridor bearing &bull; Grade: +2.1°
+            {isLive ? 'Real-time ground velocity' : 'Telemetry feed paused'}
           </p>
         </div>
 
@@ -123,10 +136,10 @@ export const TrackingPage: React.FC = () => {
             <span>Geofence Perimeter</span>
           </div>
           <div className="text-base font-bold text-emerald-700">
-            WITHIN SAFE CORRIDOR
+            {isLive ? 'WITHIN SAFE CORRIDOR' : 'MONITORING STANDBY'}
           </div>
           <p className="text-[11px] text-slate-500">
-            Berm buffer: 14.5m &bull; Dump boundary: 85m clear
+            {isLive ? 'Berm buffer: Nominal' : 'Corridor limits loaded'}
           </p>
         </div>
 
@@ -137,10 +150,12 @@ export const TrackingPage: React.FC = () => {
             <span>Focus Vehicle Coordinates</span>
           </div>
           <div className="text-base font-bold font-mono text-slate-800">
-            {telemetry.gps.lat.toFixed(5)}°, {telemetry.gps.lon.toFixed(5)}°
+            {telemetry.gps.lat !== null && telemetry.gps.lon !== null
+              ? `${telemetry.gps.lat.toFixed(5)}°, ${telemetry.gps.lon.toFixed(5)}°`
+              : 'N/A (No GPS Lock)'}
           </div>
           <p className="text-[11px] text-slate-500">
-            WGS84 Datum &bull; Elevation: 314m MSL
+            WGS84 Datum &bull; NEO-6M Real Hardware
           </p>
         </div>
       </div>

@@ -466,7 +466,9 @@ export const DashboardLayout: React.FC = () => {
             >
               <AlertTriangle className="w-4 h-4" />
               <span>RISK: {telemetry.risk.risk_level}</span>
-              <span className="text-xs font-mono font-normal">({telemetry.risk.risk_score}/100)</span>
+              {telemetry.risk.risk_level !== 'OFFLINE' && (
+                <span className="text-xs font-mono font-normal">({telemetry.risk.risk_score ?? 0}/100)</span>
+              )}
             </Link>
 
             {/* Alerts Pill */}
@@ -517,28 +519,33 @@ export const DashboardLayout: React.FC = () => {
             <span>&bull;</span>
             <div className="flex items-center space-x-1">
               <span className="text-slate-400 font-semibold">SPEED:</span>
-              <span className="font-mono font-bold text-slate-900">{telemetry.gps.speed_kmh.toFixed(1)} km/h</span>
+              <span className="font-mono font-bold text-slate-900">
+                {telemetry.gps.speed_kmh !== null ? `${telemetry.gps.speed_kmh.toFixed(1)} km/h` : '---'}
+              </span>
             </div>
             <span>&bull;</span>
             <div className="flex items-center space-x-1">
               <span className="text-slate-400 font-semibold">FRONT CLEARANCE:</span>
-              <span className={`font-mono font-bold ${telemetry.ultrasonic.front <= 3.5 ? 'text-red-600' : 'text-slate-900'}`}>
-                {telemetry.ultrasonic.front.toFixed(1)} m
+              <span className={`font-mono font-bold ${telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front <= 1.5 ? 'text-red-600' : 'text-slate-900'}`}>
+                {telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? `${telemetry.ultrasonic.front.toFixed(2)} m` : '---'}
               </span>
             </div>
             <span>&bull;</span>
             <div className="flex items-center space-x-1">
               <span className="text-slate-400 font-semibold">VISIBILITY:</span>
-              <span className="font-mono font-bold text-sky-700">{Math.round(telemetry.visibility.index_percent)}%</span>
+              <span className="font-mono font-bold text-sky-700">
+                {telemetry.visibility.index_percent !== null && telemetry.visibility.index_percent > 0 ? `${Math.round(telemetry.visibility.index_percent)}%` : '---'}
+              </span>
             </div>
             <span>&bull;</span>
             <div className="flex items-center space-x-1">
               <span className="text-slate-400 font-semibold">COLLISION RISK:</span>
               <span className={`font-bold ${
                 telemetry.risk.risk_level === 'CRITICAL' ? 'text-red-600' :
-                telemetry.risk.risk_level === 'WARNING' ? 'text-amber-600' : 'text-emerald-700'
+                telemetry.risk.risk_level === 'WARNING' ? 'text-amber-600' :
+                telemetry.risk.risk_level === 'OFFLINE' ? 'text-slate-500' : 'text-emerald-700'
               }`}>
-                {telemetry.risk.risk_level} ({telemetry.risk.risk_score}/100)
+                {telemetry.risk.risk_level} {telemetry.risk.risk_level !== 'OFFLINE' ? `(${telemetry.risk.risk_score ?? 0}/100)` : ''}
               </span>
             </div>
           </div>
@@ -548,15 +555,9 @@ export const DashboardLayout: React.FC = () => {
             <span className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-xs ${
               isPiConnected
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
-                : backendConnected
-                ? 'bg-blue-50 text-blue-700 border border-blue-300'
-                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}>
-              {isPiConnected
-                ? 'PI LIVE (192.168.137.214:5000)'
-                : backendConnected
-                ? 'FASTAPI CONNECTED'
-                : 'STANDALONE ENGINE'}
+              {isPiConnected ? 'PI LIVE HARDWARE' : 'HARDWARE OFFLINE'}
             </span>
           </div>
         </div>
