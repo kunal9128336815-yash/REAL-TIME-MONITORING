@@ -204,12 +204,18 @@ async def ingest_sensor_data(data: SensorIngestPayload):
 
     # Only pass physical sensor data if the channel is physically equipped on the demo rig
     if has_raw_ultrasonic and data.ultrasonic.front is not None:
-        front_dist = clean_distance(data.ultrasonic.front, "front") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_front", True) else None
-        if front_dist is not None:
+        cleaned = clean_distance(data.ultrasonic.front, "front") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_front", True) else None
+        if cleaned is not None:
+            front_dist = cleaned
             last_ultrasonic_time = now
+        elif (now - last_ultrasonic_time) <= 15.0 and prev_us.get("front") is not None:
+            # Preserve last valid distance during temporary transducer glitch / timeout
+            front_dist = prev_us.get("front")
+        else:
+            front_dist = None
     else:
-        # If camera packet arrived without ultrasonic, preserve last ultrasonic reading for up to 4.5s
-        if (now - last_ultrasonic_time) <= 4.5 and prev_us.get("front") is not None:
+        # If camera/vision packet arrived without ultrasonic, preserve last ultrasonic reading for up to 15.0s
+        if (now - last_ultrasonic_time) <= 15.0 and prev_us.get("front") is not None:
             front_dist = prev_us.get("front")
         else:
             front_dist = None
