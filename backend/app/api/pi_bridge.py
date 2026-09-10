@@ -73,6 +73,10 @@ def _normalize_and_ingest(raw: Dict[str, Any]) -> Dict[str, Any]:
         6.5
     )
 
+    # HC-SR04 sensor outputs centimeters; convert to meters if > 30 cm
+    if front > 30.0:
+        front = round(front / 100.0, 2)
+
     ultrasonic_dict = {
         "front": round(front, 2),
         "rear": round(rear, 2),
