@@ -73,6 +73,8 @@ class SensorIngestPayload(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     gps_speed: Optional[float] = None
+    speed: Optional[float] = None
+    speed_kmh: Optional[float] = None
     temperature: Optional[float] = None
     humidity: Optional[float] = None
     detections: Optional[List[Dict[str, Any]]] = None
@@ -128,9 +130,6 @@ async def ingest_sensor_data(data: SensorIngestPayload):
     if candidate_dist is not None:
         data.ultrasonic.front = candidate_dist
 
-    if has_raw_ultrasonic or data.lat is not None or (data.gps and data.gps.lat is not None):
-        print(f"[HARDWARE INGEST] dist: {candidate_dist} | lat: {data.lat or (data.gps.lat if data.gps else None)}")
-    
     validation_warnings = []
 
     # 1. GPS Integrity Checks (with persistent merge)
@@ -154,9 +153,36 @@ async def ingest_sensor_data(data: SensorIngestPayload):
     if lon is not None and not (-180.0 <= lon <= 180.0):
         validation_warnings.append(f"GPS Longitude {lon} out of physical bounds [-180, 180]")
         lon = None
-    # User requirement: Keep vehicle speed at 0.0 km/h
-    speed = 0.0
+
+    # Read real physical speed from incoming sensor payload (GPS, ESP32, optical flow)
+    extra = getattr(data, "model_extra", {}) or {}
+    candidates = [
+        data.gps_speed,
+        data.speed,
+        data.speed_kmh,
+        data.gps.speed if (data.gps and data.gps.speed is not None) else None,
+        extra.get("gps_speed"),
+        extra.get("speed"),
+        extra.get("speed_kmh"),
+        extra.get("velocity"),
+        extra.get("spd"),
+        extra.get("Speed"),
+    ]
+    raw_spd = next((float(c) for c in candidates if c is not None and str(c).strip() != ""), None)
+    if raw_spd is not None:
+        speed = float(raw_spd)
+    elif prev_gps.get("speed_kmh") is not None:
+        speed = float(prev_gps.get("speed_kmh"))
+    else:
+        speed = 0.0
+
+    if speed < 0 or speed > 130.0:
+        validation_warnings.append(f"Vehicle speed {speed}km/h exceeds physical envelope")
+        speed = max(0.0, min(130.0, speed))
     heading = (float(data.gps.heading or prev_gps.get("heading_deg") or 0.0)) % 360.0
+
+    if has_raw_ultrasonic or data.lat is not None or (data.gps and data.gps.lat is not None):
+        print(f"[HARDWARE INGEST] dist: {candidate_dist} | lat: {data.lat or (data.gps.lat if data.gps else None)} | speed: {speed:.1f} km/h")
 
     # 2. Ultrasonic Integrity Checks (with persistent merge)
     prev_us = live_hardware_state.get("ultrasonic", {}) if live_hardware_state else {}

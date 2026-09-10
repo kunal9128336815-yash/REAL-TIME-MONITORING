@@ -112,8 +112,20 @@ def _validate_and_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
         integrity_errors.append(f"Speed: Flow speed {flow_spd}km/h invalid")
         flow_spd = 0.0
 
-    # User requirement: Keep vehicle speed at 0.0 km/h
-    speed = 0.0
+    # Extract real speed from incoming sensor payload (GPS, ESP32, optical flow, direct speed)
+    raw_spd = _extract_number([
+        raw.get("speed"),
+        raw.get("speed_kmh"),
+        g_raw.get("speed"),
+        g_raw.get("speed_kmh"),
+        raw.get("gps_speed"),
+        gps_spd if gps_spd > 0 else None,
+        flow_spd if flow_spd > 0 else None
+    ], 0.0)
+    speed = float(raw_spd)
+    if speed < 0 or speed > 130.0:
+        integrity_errors.append(f"Speed: vehicle speed {speed}km/h invalid")
+        speed = max(0.0, min(130.0, speed))
     heading = _extract_number([g_raw.get("heading"), g_raw.get("heading_deg"), raw.get("heading")], 0.0)
 
     # 4. IMU Checks
@@ -139,38 +151,16 @@ def _validate_and_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
     elif dht_hum is not None:
         vis = round(max(15.0, min(99.0, 100.0 - (dht_hum - 35.0) * 1.25)), 1)
 
-    # 6. Real Collision Risk Engine Evaluation
-    raw_status = str(raw.get("status", "")).upper()
-    if raw_status == "CRITICAL" or (front is not None and front <= 0.50):
-        risk_level = "CRITICAL"
-        risk_score = 95
-        action = "STOP VEHICLE — EMERGENCY BRAKE"
-    elif raw_status == "WARNING" or (front is not None and front <= 1.50):
-        risk_level = "WARNING"
-        risk_score = 68
-        action = "APPLY BRAKES — REDUCE SPEED"
-    elif raw_status == "CAUTION" or (front is not None and front <= 3.00):
-        risk_level = "CAUTION"
-        risk_score = 40
-        action = "CAUTION: OBSTACLE DETECTED"
-    else:
-        risk_level = "SAFE"
-        risk_score = 10
-        action = "ALL CLEAR — PROCEED SAFELY"
-
-    speed_ms = (speed * 1000.0) / 3600.0
-    ttc = round(front / speed_ms, 1) if (speed_ms > 0.3 and front is not None and front > 0.05) else None
-
-    reasons = []
-    if front is not None:
-        reasons.append(f"Live front gap: {front} m")
-    if speed > 0:
-        reasons.append(f"Ground velocity: {speed:.1f} km/h")
-    if ttc is not None:
-        reasons.append(f"Time to Collision: {ttc}s")
-    if vis is not None:
-        reasons.append(f"Atmospheric visibility: {vis}%")
-    reasons.append("Data streaming live from Raspberry Pi hardware")
+    # 6. Real Collision Risk Engine Evaluation (using real sensor speed and 6cm / 10cm thresholds)
+    vis_val = vis if vis is not None else 85.0
+    detections = raw.get("detections", []) if isinstance(raw.get("detections"), list) else []
+    risk_result = evaluate_collision_risk(
+        vehicle_speed_kmh=speed,
+        ultrasonic_distances=ultrasonic_dict,
+        vision_detections=detections,
+        visibility_percent=vis_val,
+        tilt_deg=tilt
+    )
 
     state = {
         "vehicle_id": raw.get("vehicle_id", "DUMPER_01"),
@@ -213,30 +203,9 @@ def _validate_and_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
             "inference_status": "ACTIVE_HARDWARE",
             "fps": 28.5,
             "inference_time_ms": 32.0,
-            "detections": raw.get("detections", []) if isinstance(raw.get("detections"), list) else [],
+            "detections": detections,
         },
-        "risk": {
-            "risk_level": risk_level,
-            "risk_score": risk_score,
-            "action": action,
-            "ttc_seconds": ttc,
-            "hazard_summary": f"Live Hazard Status: {risk_level}",
-            "reasons": reasons,
-            "emergency_sms_required": risk_level == "CRITICAL",
-            "driver_safety": {
-                "status": "SAFE",
-                "distraction_detected": False,
-                "earphone_confidence": 0.0,
-                "message": "Driver attentive — cabin clear",
-            },
-            "sensor_confidence": {
-                "camera": 80.0,
-                "ultrasonic": 98.0 if front is not None else 0.0,
-                "gps": 95.0 if lat is not None else 0.0,
-                "imu": 99.0,
-                "gsm": 92.0,
-            },
-        },
+        "risk": risk_result,
         "gsm": {
             "online": True,
             "signal_dbm": -72,

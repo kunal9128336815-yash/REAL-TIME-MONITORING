@@ -1,5 +1,23 @@
-from typing import Dict, Any, List, Tuple
+import time
+from typing import Dict, Any, List, Tuple, Optional
 from ..config import settings
+
+# State for differential obstacle closure rate (approach speed)
+_last_front_dist: Optional[float] = None
+_last_front_time: Optional[float] = None
+
+def get_obstacle_approach_speed(current_dist: float, current_time: float) -> float:
+    global _last_front_dist, _last_front_time
+    v_app = 0.0
+    if _last_front_dist is not None and _last_front_time is not None:
+        dt = current_time - _last_front_time
+        if 0.05 <= dt <= 1.5:
+            delta_d = _last_front_dist - current_dist  # positive if obstacle is moving closer
+            if delta_d > 0.005:
+                v_app = delta_d / dt
+    _last_front_dist = current_dist
+    _last_front_time = current_time
+    return min(15.0, max(0.0, v_app))
 
 def calculate_sensor_confidence(visibility: float, hardware_online: Dict[str, bool] = None) -> Dict[str, float]:
     """
@@ -76,12 +94,16 @@ def evaluate_collision_risk(
     if dumper_det:
         # If oncoming dumper, add relative approach speed
         closing_speed_ms += 3.5  # oncoming vehicle adding closing speed
-        
+
+    # Calculate dynamic approach rate (e.g. moving obstacle/hand towards sensor)
+    approach_ms = get_obstacle_approach_speed(front_dist, time.time()) if front_dist < 25.0 else 0.0
+    effective_closing_speed = max(closing_speed_ms, approach_ms)
+
     # Calculate Time-To-Collision (TTC)
-    if closing_speed_ms > 0.5 and front_dist < 25.0:
-        ttc = front_dist / closing_speed_ms
+    if effective_closing_speed > 0.10 and front_dist < 25.0:
+        ttc = round(front_dist / effective_closing_speed, 1)
     else:
-        ttc = None  # No immediate forward collision
+        ttc = None  # No active closure
         
     reasons: List[str] = []
     risk_level = "SAFE"
@@ -90,10 +112,10 @@ def evaluate_collision_risk(
     emergency_sms_required = False
     
     # 1. Critical Stop Threshold (Near 6cm / <= 0.06m)
-    if front_dist <= settings.stop_distance or (ttc is not None and ttc <= settings.ttc_critical_threshold):
+    if front_dist <= settings.stop_distance:
         risk_level = "CRITICAL"
         action = "STOP VEHICLE IMMEDIATELY"
-        hazard_summary = f"CRITICAL HAZARD: Impending collision at {front_dist*100:.1f}cm (<=6cm)"
+        hazard_summary = f"CRITICAL HAZARD: Impending collision at {front_dist*100:.1f}cm (<= 6cm STOP threshold)"
         reasons.append(f"Critical proximity: {front_dist*100:.1f} cm (<= 6 cm STOP threshold)")
         if ttc is not None:
             reasons.append(f"TTC critical: {ttc:.1f} sec")
@@ -104,22 +126,38 @@ def evaluate_collision_risk(
         emergency_sms_required = True
         
     # 2. Warning Proximity Threshold (Below 10cm down to 6cm / 0.06m < front_dist <= 0.10m)
-    elif front_dist <= settings.warning_distance or (ttc is not None and ttc <= settings.ttc_warning_threshold):
+    elif front_dist <= settings.warning_distance:
         risk_level = "WARNING"
         action = "APPLY BRAKES — PROXIMITY WARNING"
-        hazard_summary = f"Proximity warning: Obstacle detected at {front_dist*100:.1f}cm (<10cm)"
+        hazard_summary = f"Proximity warning: Obstacle detected at {front_dist*100:.1f}cm (< 10cm)"
         reasons.append(f"Front proximity warning: {front_dist*100:.1f} cm (< 10 cm)")
         if ttc is not None:
             reasons.append(f"TTC: {ttc:.1f} sec")
         if person_det:
             reasons.append(f"Person detected ({person_det.get('confidence', 0.9):.0%} conf)")
+
+    # 3. Dynamic closing collision for obstacles beyond 10cm
+    elif ttc is not None and ttc <= settings.ttc_critical_threshold:
+        risk_level = "CRITICAL"
+        action = "STOP VEHICLE IMMEDIATELY"
+        hazard_summary = f"CRITICAL: Rapid obstacle closure (TTC: {ttc:.1f}s)"
+        reasons.append(f"TTC critical closure: {ttc:.1f} sec")
+        emergency_sms_required = True
+
+    elif ttc is not None and ttc <= settings.ttc_warning_threshold:
+        risk_level = "WARNING"
+        action = "APPLY BRAKES — PROXIMITY WARNING"
+        hazard_summary = f"Warning: Closing on obstacle (TTC: {ttc:.1f}s)"
+        reasons.append(f"TTC closure warning: {ttc:.1f} sec")
             
-    # 3. Safe Condition (> 10cm / > 0.10m)
+    # 4. Safe Condition (> 10cm / > 0.10m)
     else:
         risk_level = "SAFE"
         action = "ALL CLEAR — PROCEED SAFELY"
         hazard_summary = f"Haul road unobstructed (Clearance: {front_dist*100:.1f}cm > 10cm)"
         reasons.append(f"Front clearance safe: {front_dist*100:.1f} cm (> 10 cm)")
+        if ttc is not None:
+            reasons.append(f"TTC: {ttc:.1f}s")
         reasons.append(f"Visibility: {visibility_percent:.0f}%")
         reasons.append(f"Speed: {vehicle_speed_kmh:.1f} km/h")
         

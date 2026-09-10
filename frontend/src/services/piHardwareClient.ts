@@ -307,42 +307,45 @@ class PiHardwareClient {
       ttc = Math.round((front / speedMs) * 10) / 10;
     }
 
-    // ISO 21815-2 & EMESRT Level 9 Risk Evaluation
     const rawStatus = typeof raw.status === 'string' ? raw.status.toUpperCase() : null;
-    let riskLevel: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' | 'OFFLINE' = 'SAFE';
-    let riskScore = 15;
-    let action = 'NOMINAL HAUL OPERATION';
-    const reasons: string[] = [];
-
     const isPerson = detections.some((d) => d.class_name === 'person');
     const isDumper = detections.some((d) => d.class_name === 'dumper');
     const isObstacle = detections.some((d) => d.class_name === 'obstacle');
 
-    if (rawStatus === 'CRITICAL' || (front !== null && front <= 0.5) || (ttc !== null && ttc <= 2.0)) {
-      riskLevel = 'CRITICAL';
-      riskScore = 95;
-      action = 'STOP VEHICLE — EMERGENCY BRAKE';
-      if (front !== null) reasons.push(`Critical ultrasonic clearance (${front.toFixed(2)}m)`);
-      if (ttc !== null && ttc <= 2.0) reasons.push(`Critical Time-to-Collision limit reached (TTC = ${ttc}s)`);
-      if (isPerson) reasons.push('Pedestrian personnel verified in immediate haul path');
-    } else if (rawStatus === 'WARNING' || (front !== null && front <= 1.5) || (ttc !== null && ttc <= 4.0)) {
-      riskLevel = 'WARNING';
-      riskScore = 68;
-      action = 'WARNING: APPLY BRAKES';
-      if (front !== null) reasons.push(`Hazard within proximity buffer (${front.toFixed(2)}m)`);
-      if (ttc !== null) reasons.push(`TTC closing: ${ttc}s`);
-    } else if (rawStatus === 'CAUTION' || (front !== null && front <= 3.0) || (visPercent !== null && visPercent < 35.0) || isPerson || isDumper || isObstacle) {
-      riskLevel = 'CAUTION';
-      riskScore = 44;
-      action = 'CAUTION: REDUCE SPEED';
-      if (front !== null) reasons.push(`Proximity target detected (${front.toFixed(2)}m)`);
-      if (visPercent !== null && visPercent < 35.0) reasons.push(`Fog visibility degraded (${Math.round(visPercent)}%)`);
-    } else {
-      riskLevel = 'SAFE';
-      riskScore = 10;
-      action = 'ALL CLEAR — PROCEED SAFELY';
-      if (front !== null) reasons.push(`Forward corridor clear (${front.toFixed(2)}m)`);
-      reasons.push('Sensors streaming live from Raspberry Pi hardware');
+    // Use backend calculated risk if already present in payload, otherwise evaluate client-side
+    const backendRisk = raw.risk && typeof raw.risk === 'object' ? raw.risk : null;
+    let riskLevel: 'SAFE' | 'CAUTION' | 'WARNING' | 'CRITICAL' | 'OFFLINE' = backendRisk?.risk_level || 'SAFE';
+    let riskScore = backendRisk?.risk_score ?? 15;
+    let action = backendRisk?.action || 'ALL CLEAR — PROCEED SAFELY';
+    const reasons: string[] = backendRisk?.reasons || [];
+
+    if (!backendRisk) {
+      if (rawStatus === 'CRITICAL' || (front !== null && front <= 0.06) || (ttc !== null && ttc <= 2.0)) {
+        riskLevel = 'CRITICAL';
+        riskScore = 95;
+        action = 'STOP VEHICLE — EMERGENCY BRAKE';
+        if (front !== null) reasons.push(`Critical ultrasonic clearance (${(front * 100).toFixed(1)}cm <= 6cm)`);
+        if (ttc !== null && ttc <= 2.0) reasons.push(`Critical Time-to-Collision limit reached (TTC = ${ttc}s)`);
+        if (isPerson) reasons.push('Pedestrian personnel verified in immediate haul path');
+      } else if (rawStatus === 'WARNING' || (front !== null && front <= 0.10) || (ttc !== null && ttc <= 4.0)) {
+        riskLevel = 'WARNING';
+        riskScore = 68;
+        action = 'APPLY BRAKES — PROXIMITY WARNING';
+        if (front !== null) reasons.push(`Hazard within proximity buffer (${(front * 100).toFixed(1)}cm <= 10cm)`);
+        if (ttc !== null) reasons.push(`TTC closing: ${ttc}s`);
+      } else if (rawStatus === 'CAUTION' || (front !== null && front <= 0.25) || (visPercent !== null && visPercent < 35.0) || isPerson || isDumper || isObstacle) {
+        riskLevel = 'CAUTION';
+        riskScore = 44;
+        action = 'CAUTION: REDUCE SPEED';
+        if (front !== null) reasons.push(`Proximity target detected (${(front * 100).toFixed(1)}cm)`);
+        if (visPercent !== null && visPercent < 35.0) reasons.push(`Fog visibility degraded (${Math.round(visPercent)}%)`);
+      } else {
+        riskLevel = 'SAFE';
+        riskScore = 10;
+        action = 'ALL CLEAR — PROCEED SAFELY';
+        if (front !== null) reasons.push(`Forward corridor clear (${(front * 100).toFixed(1)}cm > 10cm)`);
+        reasons.push('Sensors streaming live from Raspberry Pi hardware');
+      }
     }
 
     const now = new Date();
