@@ -3,6 +3,7 @@ import { TelemetryState, ScenarioType, HistoricalDataPoint, AlertRecord } from '
 import { OFFLINE_TELEMETRY_STATE, clientSimulator } from '../services/simulator';
 import { wsClient } from '../services/websocket';
 import { piHardwareClient, PiConnectionStatus } from '../services/piHardwareClient';
+import { audioAlerts } from '../services/audioAlerts';
 import { setBackendScenario, controlBackendSimulation, startBackendGuidedDemo, setOperatingMode, fetchAlerts } from '../services/api';
 
 export function useTelemetry() {
@@ -30,6 +31,9 @@ export function useTelemetry() {
         setTelemetry(piTelemetry);
         setOperatingModeState('LIVE_HARDWARE');
         recordHistory(piTelemetry);
+
+        // Hardware Proximity Buzzer (Fallback)
+        audioAlerts.updateHardwareBuzzer(piTelemetry.ultrasonic?.front, piTelemetry.risk?.risk_level || 'SAFE');
 
         if (piTelemetry.risk.risk_level !== lastRiskRef.current) {
           if (piTelemetry.risk.risk_level === 'CRITICAL' || piTelemetry.risk.risk_level === 'WARNING') {
@@ -73,6 +77,10 @@ export function useTelemetry() {
         recordHistory(data);
       }
 
+      // Trigger real-time ultrasonic hardware buzzer based on user thresholds:
+      // > 10cm: Silent (SAFE) | <= 10cm: Beep (WARNING) | <= 6cm: Long Beep (CRITICAL)
+      audioAlerts.updateHardwareBuzzer(data.ultrasonic?.front, data.risk?.risk_level || 'SAFE');
+
       if (data.risk && data.risk.risk_level !== lastRiskRef.current) {
         if (data.risk.risk_level === 'CRITICAL' || data.risk.risk_level === 'WARNING') {
           const newAlert: AlertRecord = {
@@ -98,6 +106,7 @@ export function useTelemetry() {
     return () => {
       unsubConn();
       unsubData();
+      audioAlerts.stopBuzzer();
     };
   }, []);
 

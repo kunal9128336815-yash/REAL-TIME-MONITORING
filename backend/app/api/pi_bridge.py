@@ -112,7 +112,8 @@ def _validate_and_normalize(raw: Dict[str, Any]) -> Dict[str, Any]:
         integrity_errors.append(f"Speed: Flow speed {flow_spd}km/h invalid")
         flow_spd = 0.0
 
-    speed = gps_spd if gps_spd > 0.5 else flow_spd
+    # User requirement: Keep vehicle speed at 0.0 km/h
+    speed = 0.0
     heading = _extract_number([g_raw.get("heading"), g_raw.get("heading_deg"), raw.get("heading")], 0.0)
 
     # 4. IMU Checks

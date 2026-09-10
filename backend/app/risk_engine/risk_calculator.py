@@ -89,65 +89,37 @@ def evaluate_collision_risk(
     hazard_summary = "Haul road unobstructed"
     emergency_sms_required = False
     
-    # 1. Check critical immediate hazards
-    if person_det and front_dist <= 5.0:
+    # 1. Critical Stop Threshold (Near 6cm / <= 0.06m)
+    if front_dist <= settings.stop_distance or (ttc is not None and ttc <= settings.ttc_critical_threshold):
         risk_level = "CRITICAL"
         action = "STOP VEHICLE IMMEDIATELY"
-        hazard_summary = f"Personnel in haul corridor at {front_dist:.1f}m"
-        reasons.append(f"Person detected ahead ({person_det.get('confidence', 0.9):.0%} conf)")
-        reasons.append(f"Proximity critical: {front_dist:.1f} m")
-        if ttc is not None:
-            reasons.append(f"TTC: {ttc:.1f} sec")
-        emergency_sms_required = True
-        
-    elif front_dist <= settings.stop_distance or (ttc is not None and ttc <= settings.ttc_critical_threshold):
-        risk_level = "CRITICAL"
-        action = "STOP VEHICLE IMMEDIATELY"
-        hazard_summary = f"Impending collision at {front_dist:.1f}m"
-        reasons.append(f"Critical proximity: {front_dist:.1f} m")
+        hazard_summary = f"CRITICAL HAZARD: Impending collision at {front_dist*100:.1f}cm (<=6cm)"
+        reasons.append(f"Critical proximity: {front_dist*100:.1f} cm (<= 6 cm STOP threshold)")
         if ttc is not None:
             reasons.append(f"TTC critical: {ttc:.1f} sec")
+        if person_det:
+            reasons.append(f"Person detected ahead ({person_det.get('confidence', 0.9):.0%} conf)")
         if dumper_det:
             reasons.append(f"Oncoming dumper ({dumper_det.get('confidence', 0.9):.0%} conf)")
         emergency_sms_required = True
         
-    # 2. Check Warning level
-    elif (ttc is not None and ttc <= settings.ttc_warning_threshold) or front_dist <= settings.critical_distance or (person_det and front_dist <= 8.0):
+    # 2. Warning Proximity Threshold (Below 10cm down to 6cm / 0.06m < front_dist <= 0.10m)
+    elif front_dist <= settings.warning_distance or (ttc is not None and ttc <= settings.ttc_warning_threshold):
         risk_level = "WARNING"
-        action = "APPLY BRAKES — REDUCE SPEED"
-        if person_det:
-            hazard_summary = f"Person detected on roadway ({front_dist:.1f}m)"
-            reasons.append(f"Person detected at {front_dist:.1f} m")
-        elif dumper_det:
-            hazard_summary = f"Heavy vehicle approaching ({front_dist:.1f}m)"
-            reasons.append(f"Oncoming dumper at {front_dist:.1f} m")
-        else:
-            hazard_summary = f"Proximity warning ahead ({front_dist:.1f}m)"
-            reasons.append(f"Front proximity threshold reached: {front_dist:.1f} m")
-            
+        action = "APPLY BRAKES — PROXIMITY WARNING"
+        hazard_summary = f"Proximity warning: Obstacle detected at {front_dist*100:.1f}cm (<10cm)"
+        reasons.append(f"Front proximity warning: {front_dist*100:.1f} cm (< 10 cm)")
         if ttc is not None:
             reasons.append(f"TTC: {ttc:.1f} sec")
+        if person_det:
+            reasons.append(f"Person detected ({person_det.get('confidence', 0.9):.0%} conf)")
             
-    # 3. Check Caution level
-    elif front_dist <= settings.warning_distance or obstacle_det or min_flank_dist <= 3.0 or visibility_percent <= settings.dense_fog_threshold:
-        risk_level = "CAUTION"
-        action = "MAINTAIN CAUTION — SCAN BLIND SPOTS"
-        if obstacle_det:
-            hazard_summary = f"Obstacle on haul road ({front_dist:.1f}m)"
-            reasons.append(f"Static obstacle detected ({obstacle_det.get('confidence', 0.8):.0%} conf)")
-        elif min_flank_dist <= 3.0:
-            side = "Left" if left_dist < right_dist else "Right"
-            hazard_summary = f"Flank proximity warning ({side}: {min_flank_dist:.1f}m)"
-            reasons.append(f"{side} flank clearance narrow: {min_flank_dist:.1f} m")
-        elif visibility_percent <= settings.dense_fog_threshold:
-            hazard_summary = f"Dense monsoon fog ({visibility_percent:.0f}% visibility)"
-            reasons.append(f"Visibility degraded to {visibility_percent:.0f}% — relying on ultrasonic fusion")
-        else:
-            hazard_summary = f"Front vehicle within {front_dist:.1f}m"
-            reasons.append(f"Front distance: {front_dist:.1f} m")
-            
+    # 3. Safe Condition (> 10cm / > 0.10m)
     else:
-        reasons.append(f"Front clearance clear: {front_dist:.1f} m")
+        risk_level = "SAFE"
+        action = "ALL CLEAR — PROCEED SAFELY"
+        hazard_summary = f"Haul road unobstructed (Clearance: {front_dist*100:.1f}cm > 10cm)"
+        reasons.append(f"Front clearance safe: {front_dist*100:.1f} cm (> 10 cm)")
         reasons.append(f"Visibility: {visibility_percent:.0f}%")
         reasons.append(f"Speed: {vehicle_speed_kmh:.1f} km/h")
         

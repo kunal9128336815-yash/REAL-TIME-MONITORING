@@ -154,13 +154,8 @@ async def ingest_sensor_data(data: SensorIngestPayload):
     if lon is not None and not (-180.0 <= lon <= 180.0):
         validation_warnings.append(f"GPS Longitude {lon} out of physical bounds [-180, 180]")
         lon = None
-    raw_spd = data.gps_speed if data.gps_speed is not None else (data.gps.speed if data.gps else 0.0)
-    speed = float(raw_spd or 0.0)
-    if speed == 0.0 and prev_gps.get("speed_kmh"):
-        speed = float(prev_gps.get("speed_kmh"))
-    if speed < 0 or speed > 130.0:
-        validation_warnings.append(f"Vehicle speed {speed}km/h exceeds physical envelope")
-        speed = max(0.0, min(130.0, speed))
+    # User requirement: Keep vehicle speed at 0.0 km/h
+    speed = 0.0
     heading = (float(data.gps.heading or prev_gps.get("heading_deg") or 0.0)) % 360.0
 
     # 2. Ultrasonic Integrity Checks (with persistent merge)
@@ -170,14 +165,14 @@ async def ingest_sensor_data(data: SensorIngestPayload):
             return None
         try:
             v = float(val)
-            if v != v or v <= 0:  # NaN or zero/negative
+            # The sensor measures in centimeters (HC-SR04 envelope: 2cm to 400cm).
+            # Any reading >= 1.0 is in centimeters (e.g. 5cm -> 0.05m, 8cm -> 0.08m, 35cm -> 0.35m).
+            # Any reading < 1.0 is already in meters (e.g. 0.06m, 0.10m).
+            meter_val = v / 100.0 if v >= 1.0 else v
+            if meter_val < 0.01 or meter_val > 25.0:
+                validation_warnings.append(f"Ultrasonic {label} {val} outside detection range")
                 return None
-            # If value is > 10.0, it is in centimeters (HC-SR04 max range is ~400cm = 4m)
-            meter_val = v / 100.0 if v > 10.0 else v
-            if meter_val < 0.02 or meter_val > 25.0:
-                validation_warnings.append(f"Ultrasonic {label} {val}m outside detection range")
-                return None
-            return round(meter_val, 2)
+            return round(meter_val, 3)
         except (ValueError, TypeError):
             return None
 
