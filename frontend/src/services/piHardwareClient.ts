@@ -113,10 +113,43 @@ class PiHardwareClient {
   }
 
   private async fetchWithFallbacks(targetUrl: string): Promise<any> {
-    // 1. Try Direct fetch to user's Pi URL
+    // 1. Try local dev proxy (/pi-proxy) first — instant and zero CORS issues
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+      const res = await fetch('/pi-proxy', {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Proxy failed or not running in Vite dev
+    }
+
+    // 2. Try FastAPI backend proxy (works across local network/phones too)
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600);
+      const backendHost = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
+      const res = await fetch(`http://${backendHost}:8000/api/pi-proxy`, {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Backend not running or unreachable
+    }
+
+    // 3. Try direct fetch to target Pi URL
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 800);
       const res = await fetch(targetUrl, {
         signal: controller.signal,
         headers: { Accept: 'application/json' },
@@ -127,38 +160,6 @@ class PiHardwareClient {
       }
     } catch {
       // Direct fetch may fail due to browser CORS or different subnet
-    }
-
-    // 2. Try Vite local dev proxy (/pi-proxy) if on desktop
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const res = await fetch('/pi-proxy', {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Proxy failed or not on local Vite
-    }
-
-    // 3. Try local FastAPI backend proxy (http://localhost:8000/api/pi-proxy)
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      const res = await fetch('http://localhost:8000/api/pi-proxy', {
-        signal: controller.signal,
-        headers: { Accept: 'application/json' },
-      });
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        return await res.json();
-      }
-    } catch {
-      // Backend not running or unreachable
     }
 
     throw new Error(`Cannot reach Pi at ${targetUrl}`);
