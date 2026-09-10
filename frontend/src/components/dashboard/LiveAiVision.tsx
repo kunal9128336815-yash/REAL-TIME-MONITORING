@@ -59,8 +59,13 @@ export const LiveAiVision: React.FC<LiveAiVisionProps> = ({ vision, visibility }
       });
 
       if (videoRef.current) {
+        videoRef.current.muted = true;
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn('Video element play() warning:', playErr);
+        }
         setCameraActive(true);
       }
     } catch (err: any) {
@@ -242,7 +247,7 @@ export const LiveAiVision: React.FC<LiveAiVisionProps> = ({ vision, visibility }
               playsInline
               muted
               className={`w-full h-full object-cover transition-opacity duration-300 ${
-                cameraActive ? 'opacity-100 block' : 'opacity-0 hidden'
+                cameraActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
               style={{ filter: `blur(${fogBlurPx}px)` }}
             />

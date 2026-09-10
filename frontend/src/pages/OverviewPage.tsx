@@ -13,10 +13,12 @@ import {
   Cpu,
   RefreshCw,
   Settings,
-  Radio
+  Radio,
+  Camera
 } from 'lucide-react';
 import { GpsTrackingMap } from '../components/dashboard/GpsTrackingMap';
 import { VehicleDigitalTwin } from '../components/dashboard/VehicleDigitalTwin';
+import { LiveAiVision } from '../components/dashboard/LiveAiVision';
 import { PiConnectionModal } from '../components/modals/PiConnectionModal';
 
 export const OverviewPage: React.FC = () => {
@@ -34,6 +36,7 @@ export const OverviewPage: React.FC = () => {
 
   const [isPiModalOpen, setIsPiModalOpen] = useState(false);
   const [isPingingPi, setIsPingingPi] = useState(false);
+  const [overviewRightTab, setOverviewRightTab] = useState<'camera' | 'twin'>('camera');
 
   const handleQuickPing = async () => {
     setIsPingingPi(true);
@@ -414,59 +417,107 @@ export const OverviewPage: React.FC = () => {
 
         </div>
 
-        {/* Right 5 cols: Vehicle Digital Twin with 4 ultrasonic channels */}
-        <div className="lg:col-span-5 p-5 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        {/* Right 5 cols: Vehicle Digital Twin OR Live Laptop Camera */}
+        <div className="lg:col-span-5 p-4 sm:p-5 rounded-xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between">
+          <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-3 gap-2">
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
               <h2 className="text-sm sm:text-base font-bold text-slate-800 uppercase tracking-wide">
-                Haul Truck D-001 Digital Twin
+                {overviewRightTab === 'camera' ? 'Live Front Camera (Laptop Webcam)' : 'Haul Truck D-001 Digital Twin'}
               </h2>
             </div>
-            <Link
-              to="/fleet/D-001"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center space-x-1 group"
-            >
-              <span>Full Twin</span>
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+            
+            {/* Tab selector */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setOverviewRightTab('camera')}
+                className={`px-2.5 py-1 rounded-md flex items-center space-x-1.5 transition-all ${
+                  overviewRightTab === 'camera'
+                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>Laptop Cam</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setOverviewRightTab('twin')}
+                className={`px-2.5 py-1 rounded-md flex items-center space-x-1.5 transition-all ${
+                  overviewRightTab === 'twin'
+                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Truck className="w-3.5 h-3.5" />
+                <span>Twin View</span>
+              </button>
+            </div>
           </div>
 
-          {/* Embedded Digital Twin Widget */}
-          <div className="py-2">
-            <VehicleDigitalTwin
-              ultrasonic={telemetry.ultrasonic}
-              imu={telemetry.imu}
-              speed={telemetry.gps.speed_kmh}
-            />
-          </div>
+          {/* Conditional View: Laptop Camera or Digital Twin */}
+          {overviewRightTab === 'camera' ? (
+            <div className="py-2 flex-1 flex flex-col justify-center">
+              <div className="rounded-lg overflow-hidden border border-slate-700/60 shadow-md">
+                <LiveAiVision
+                  vision={telemetry.vision}
+                  visibility={telemetry.visibility}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2.5 text-xs text-slate-500">
+                <span className="flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Optical Obstacle Detection Active</span>
+                </span>
+                <Link
+                  to="/ai-vision"
+                  className="text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-0.5"
+                >
+                  <span>Open Full AI Vision Page</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Embedded Digital Twin Widget */}
+              <div className="py-2">
+                <VehicleDigitalTwin
+                  ultrasonic={telemetry.ultrasonic}
+                  imu={telemetry.imu}
+                  speed={telemetry.gps.speed_kmh}
+                />
+              </div>
 
-          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-center">
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 block uppercase">FRONT</span>
-              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
-                {telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? `${telemetry.ultrasonic.front.toFixed(2)}m` : '---'}
-              </span>
-            </div>
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 block uppercase">REAR</span>
-              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
-                {telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? `${telemetry.ultrasonic.rear.toFixed(1)}m` : '---'}
-              </span>
-            </div>
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 block uppercase">LEFT</span>
-              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
-                {telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? `${telemetry.ultrasonic.left.toFixed(1)}m` : '---'}
-              </span>
-            </div>
-            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 block uppercase">RIGHT</span>
-              <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
-                {telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? `${telemetry.ultrasonic.right.toFixed(1)}m` : '---'}
-              </span>
-            </div>
-          </div>
+              <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 text-center">
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 block uppercase">FRONT</span>
+                  <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                    {telemetry.ultrasonic.front !== null && telemetry.ultrasonic.front > 0 ? `${telemetry.ultrasonic.front.toFixed(2)}m` : '---'}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 block uppercase">REAR</span>
+                  <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                    {telemetry.ultrasonic.rear !== null && telemetry.ultrasonic.rear > 0 ? `${telemetry.ultrasonic.rear.toFixed(1)}m` : '---'}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 block uppercase">LEFT</span>
+                  <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                    {telemetry.ultrasonic.left !== null && telemetry.ultrasonic.left > 0 ? `${telemetry.ultrasonic.left.toFixed(1)}m` : '---'}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 block uppercase">RIGHT</span>
+                  <span className={`text-base font-bold font-mono ${telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? 'text-slate-700' : 'text-slate-400'}`}>
+                    {telemetry.ultrasonic.right !== null && telemetry.ultrasonic.right > 0 ? `${telemetry.ultrasonic.right.toFixed(1)}m` : '---'}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
       </div>
