@@ -49,7 +49,7 @@ frame_lock = threading.Lock()
 # ---------------------------------------------------------------------------
 # MJPEG HTTP Server (allows viewing the annotated YOLO feed in any browser)
 # ---------------------------------------------------------------------------
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 class StreamHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -66,14 +66,10 @@ class StreamHandler(BaseHTTPRequestHandler):
                         continue
                     frame_bytes = current_encoded_frame
                 try:
-                    self.wfile.write(b'--frame\r\n')
-                    self.send_header('Content-type', 'image/jpeg')
-                    self.send_header('Content-length', str(len(frame_bytes)))
-                    self.end_headers()
-                    self.wfile.write(frame_bytes)
-                    self.wfile.write(b'\r\n')
+                    chunk = b'--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ' + str(len(frame_bytes)).encode() + b'\r\n\r\n' + frame_bytes + b'\r\n'
+                    self.wfile.write(chunk)
                     time.sleep(0.033)
-                except (BrokenPipeError, ConnectionResetError):
+                except (BrokenPipeError, ConnectionResetError, Exception):
                     break
         else:
             self.send_response(200)
@@ -105,7 +101,7 @@ class StreamHandler(BaseHTTPRequestHandler):
 
 def start_mjpeg_server():
     try:
-        server = HTTPServer(('0.0.0.0', MJPEG_PORT), StreamHandler)
+        server = ThreadingHTTPServer(('0.0.0.0', MJPEG_PORT), StreamHandler)
         server.serve_forever()
     except Exception as e:
         print(f"[MJPEG] Stream server error: {e}")
@@ -370,3 +366,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

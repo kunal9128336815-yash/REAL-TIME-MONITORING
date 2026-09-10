@@ -1,7 +1,11 @@
 import { TelemetryState, AlertRecord, FleetVehicle } from '../types';
 
-const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-const API_BASE = `http://${host}:8000/api`;
+const isBrowser = typeof window !== 'undefined';
+const host = isBrowser && window.location.hostname ? window.location.hostname : 'localhost';
+const isViteDev = isBrowser && window.location.port === '5173';
+export const API_BASE = isViteDev
+  ? `http://${host}:8000/api`
+  : (isBrowser && window.location.origin ? `${window.location.origin}/api` : `http://${host}:8000/api`);
 
 export async function fetchLatestTelemetry(): Promise<TelemetryState | null> {
   try {

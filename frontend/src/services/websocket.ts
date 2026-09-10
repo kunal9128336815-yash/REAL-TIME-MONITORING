@@ -12,8 +12,13 @@ class WebSocketClient {
   private isConnected: boolean = false;
 
   constructor() {
-    const host = typeof window !== 'undefined' && window.location.hostname ? window.location.hostname : 'localhost';
-    this.url = `ws://${host}:8000/ws/telemetry`;
+    const isBrowser = typeof window !== 'undefined';
+    const host = isBrowser && window.location.hostname ? window.location.hostname : 'localhost';
+    const isViteDev = isBrowser && window.location.port === '5173';
+    const proto = isBrowser && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    this.url = isViteDev
+      ? `ws://${host}:8000/ws/telemetry`
+      : (isBrowser && window.location.host ? `${proto}//${window.location.host}/ws/telemetry` : `ws://${host}:8000/ws/telemetry`);
   }
 
   public connect() {
