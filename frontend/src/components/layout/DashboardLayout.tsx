@@ -138,7 +138,7 @@ export const DashboardLayout: React.FC = () => {
       title: 'COMMAND & FLEET MONITORING',
       items: [
         { to: '/', label: 'Command Overview', icon: ShieldAlert },
-        { to: '/fleet', label: 'Fleet Monitoring', icon: Truck, badge: '5 UNITS' },
+        { to: '/fleet', label: 'Fleet Monitoring', icon: Truck, badge: '1 ACTIVE' },
         { to: '/tracking', label: 'Live GIS Fleet Map', icon: MapPin, badge: 'LIVE GPS' },
       ],
     },

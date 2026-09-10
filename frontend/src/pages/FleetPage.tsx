@@ -11,7 +11,7 @@ export const FleetPage: React.FC = () => {
   const vehicles = [
     {
       id: 'D-001',
-      name: 'Dumper D-001 (Primary Sensor Rig)',
+      name: 'Dumper D-001 (Active Hardware Rig)',
       driver: 'Ramesh Kumar (ID #849)',
       status: 'ACTIVE',
       speed: `${telemetry.gps.speed_kmh.toFixed(1)} km/h`,
@@ -20,7 +20,7 @@ export const FleetPage: React.FC = () => {
       visibility: `${Math.round(telemetry.visibility.index_percent)}%`,
       ttc: telemetry.risk.ttc_seconds !== null ? `${telemetry.risk.ttc_seconds.toFixed(1)}s` : '> 8.0s',
       gps: telemetry.gps.fix_status,
-      connection: 'ONLINE (4G LTE)',
+      connection: 'ONLINE (ESP32 + Pi 4)',
       payload: '85.4 Tons',
       sector: 'Pit Alpha - Haul Road 2',
       isPrimary: true,
@@ -29,48 +29,48 @@ export const FleetPage: React.FC = () => {
       id: 'D-002',
       name: 'Dumper D-002',
       driver: 'Vikram Singh (ID #712)',
-      status: 'ACTIVE',
-      speed: '9.8 km/h',
-      risk: 'WARNING',
-      riskScore: 68,
-      visibility: '34%',
-      ttc: '3.2s',
-      gps: '3D_FIX_9_SATS',
-      connection: 'ONLINE',
-      payload: '90.2 Tons',
-      sector: 'Crusher Incline Road',
+      status: 'OFFLINE',
+      speed: '0.0 km/h',
+      risk: 'SAFE',
+      riskScore: 0,
+      visibility: '--',
+      ttc: '--',
+      gps: 'STANDBY',
+      connection: 'OFFLINE (Parked in Depot)',
+      payload: '0.0 Tons',
+      sector: 'Maintenance Bay 3',
       isPrimary: false,
     },
     {
       id: 'D-003',
       name: 'Dumper D-003',
       driver: 'Anil Sharma (ID #521)',
-      status: 'ACTIVE',
-      speed: '14.2 km/h',
+      status: 'OFFLINE',
+      speed: '0.0 km/h',
       risk: 'SAFE',
-      riskScore: 18,
-      visibility: '71%',
-      ttc: '9.4s',
-      gps: '3D_FIX_11_SATS',
-      connection: 'ONLINE',
-      payload: '78.6 Tons',
-      sector: 'North Bench Strip 4',
+      riskScore: 0,
+      visibility: '--',
+      ttc: '--',
+      gps: 'STANDBY',
+      connection: 'OFFLINE (Parked in Depot)',
+      payload: '0.0 Tons',
+      sector: 'South Fueling Station',
       isPrimary: false,
     },
     {
       id: 'D-004',
       name: 'Dumper D-004',
       driver: 'Mohd. Salim (ID #639)',
-      status: 'ACTIVE',
-      speed: '6.2 km/h',
-      risk: 'CRITICAL',
-      riskScore: 89,
-      visibility: '28%',
-      ttc: '1.4s',
-      gps: '3D_FIX_8_SATS',
-      connection: 'ONLINE',
-      payload: '88.0 Tons',
-      sector: 'Waste Dump Route B',
+      status: 'OFFLINE',
+      speed: '0.0 km/h',
+      risk: 'SAFE',
+      riskScore: 0,
+      visibility: '--',
+      ttc: '--',
+      gps: 'STANDBY',
+      connection: 'OFFLINE (Parked in Depot)',
+      payload: '0.0 Tons',
+      sector: 'Workshop Bay 1',
       isPrimary: false,
     },
   ];
@@ -102,8 +102,12 @@ export const FleetPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center space-x-2 text-xs">
-          <span className="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
-            5 / 5 Vehicles Reporting
+          <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 font-semibold flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>1 Active Rig (D-001)</span>
+          </span>
+          <span className="px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 font-medium">
+            3 Offline (Depot)
           </span>
         </div>
       </div>

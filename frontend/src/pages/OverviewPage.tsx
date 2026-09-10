@@ -178,14 +178,17 @@ export const OverviewPage: React.FC = () => {
               </span>
               <Maximize2 className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
-            <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 mt-1">
-              04 <span className="text-xs font-normal font-sans text-slate-500">Dumpers</span>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 mt-1 flex items-baseline space-x-1.5">
+              <span>01</span>
+              <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                ACTIVE
+              </span>
             </div>
-            <span className="text-xs font-medium text-blue-600 group-hover:underline flex items-center mt-1">
-              View Fleet <ArrowRight className="w-3 h-3 ml-1" />
+            <span className="text-xs font-medium text-slate-500 flex items-center mt-1">
+              D-001 Live Hardware (3 Offline)
             </span>
           </div>
-          <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100 text-blue-600 group-hover:bg-blue-100 transition-colors">
+          <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 group-hover:bg-emerald-100 transition-colors">
             <Truck className="w-5 h-5" />
           </div>
         </div>

@@ -85,10 +85,16 @@ def _normalize_and_ingest(raw: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     # 2. GPS
+    # 2. GPS & Speed Fusion
     g_raw = raw.get("gps") or {}
-    lat = _extract_number([g_raw.get("lat"), raw.get("lat"), raw.get("latitude")], 22.71960)
-    lon = _extract_number([g_raw.get("lon"), raw.get("lon"), raw.get("longitude")], 75.85770)
-    speed = _extract_number([g_raw.get("speed"), g_raw.get("speed_kmh"), raw.get("speed"), raw.get("speed_kmh")], 14.5)
+    lat = _extract_number([g_raw.get("lat"), raw.get("lat"), raw.get("latitude")], 23.136500)
+    lon = _extract_number([g_raw.get("lon"), raw.get("lon"), raw.get("longitude")], 72.873200)
+    
+    # Sensor Fusion: Use GPS speed if available, otherwise Optical Flow speed
+    gps_speed = _extract_number([g_raw.get("speed"), g_raw.get("speed_kmh"), raw.get("gps_speed"), raw.get("speed")], 0.0)
+    flow_speed = _extract_number([raw.get("flow_speed"), raw.get("flow_speed_kmh"), raw.get("optical_flow_speed")], 0.0)
+    speed = gps_speed if gps_speed > 0.5 else (flow_speed if flow_speed > 0.0 else 0.0)
+    
     heading = _extract_number([g_raw.get("heading"), g_raw.get("heading_deg"), raw.get("heading")], 45.0)
 
     # 3. IMU
@@ -96,9 +102,18 @@ def _normalize_and_ingest(raw: Dict[str, Any]) -> Dict[str, Any]:
     tilt = _extract_number([i_raw.get("tilt"), i_raw.get("tilt_deg"), raw.get("tilt"), raw.get("pitch")], 2.0)
     accel = _extract_number([i_raw.get("acceleration"), i_raw.get("acceleration_g"), raw.get("accel")], 0.45)
 
-    # 4. Visibility
+    # 4. Environmental & Visibility (Derived from DHT11 Humidity)
+    dht_hum = _extract_number([raw.get("humidity"), raw.get("hum"), raw.get("dht_humidity")], -1.0)
+    dht_temp = _extract_number([raw.get("temperature"), raw.get("temp"), raw.get("dht_temp")], -1.0)
+    
     v_raw = raw.get("visibility") or {}
-    vis = _extract_number([v_raw.get("index_percent"), raw.get("visibility_percent"), raw.get("visibility")], 75.0)
+    if "index_percent" in v_raw or "visibility_percent" in raw:
+        vis = _extract_number([v_raw.get("index_percent"), raw.get("visibility_percent"), raw.get("visibility")], 75.0)
+    elif dht_hum > 0:
+        # Physical model: Higher humidity produces water droplet condensation (fog)
+        vis = round(max(15.0, min(98.0, 100.0 - (dht_hum - 35.0) * 1.25)), 1)
+    else:
+        vis = 75.0
 
     # 5. Detections
     detections = []
@@ -168,6 +183,16 @@ def _normalize_and_ingest(raw: Dict[str, Any]) -> Dict[str, Any]:
             "detections": detections,
         },
         "risk": risk_result,
+        "environment": {
+            "temperature_c": dht_temp if dht_temp > -10 else 28.0,
+            "humidity_percent": dht_hum if dht_hum >= 0 else 60.0,
+            "fog_risk": "HIGH" if dht_hum >= 80 else ("MODERATE" if dht_hum >= 60 else "LOW"),
+        },
+        "optical_flow": {
+            "speed_kmh": round(flow_speed, 2),
+            "distance_m": round(_extract_number([raw.get("flow_dist")], 0.0), 2),
+            "status": "ONLINE" if flow_speed >= 0 else "OFFLINE",
+        },
         "gsm": {
             "online": True,
             "signal_dbm": raw.get("gsm", {}).get("signal_dbm", -72),
@@ -181,8 +206,10 @@ def _normalize_and_ingest(raw: Dict[str, Any]) -> Dict[str, Any]:
             "raspberry_pi": "ONLINE",
             "pi_camera": "ONLINE",
             "yolo_engine": "RUNNING",
-            "ultrasonic_array": "4/4 ONLINE",
-            "neo6m_gps": "LOCKED",
+            "ultrasonic_array": "ONLINE" if front > 0 else "DEGRADED",
+            "neo6m_gps": "LOCKED" if gps_speed > 0 else "ONLINE (RRU)",
+            "optical_flow": "ONLINE",
+            "dht11": "ONLINE" if dht_hum > 0 else "OFFLINE",
             "mpu6050_imu": "ONLINE",
             "gsm_4g_sim": "CONNECTED (4G LTE)",
             "backend": "ONLINE",
