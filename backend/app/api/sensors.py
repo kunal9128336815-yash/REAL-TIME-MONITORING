@@ -13,6 +13,9 @@ router = APIRouter(prefix="/api", tags=["Sensors & Telemetry"])
 live_hardware_state: Optional[Dict[str, Any]] = None
 operating_mode = "LIVE_HARDWARE"
 last_live_packet_time: float = 0.0
+last_ultrasonic_time: float = 0.0
+last_gps_time: float = 0.0
+last_vision_time: float = 0.0
 packet_counter: int = 0
 last_source_ip: str = "N/A"
 
@@ -84,6 +87,7 @@ class SensorIngestPayload(BaseModel):
 async def ingest_sensor_data(data: SensorIngestPayload):
     # Standardized live hardware ingestion endpoint for Raspberry Pi 4 & ESP32 Bridge.
     global live_hardware_state, operating_mode, last_live_packet_time, packet_counter, last_source_ip
+    global last_ultrasonic_time, last_gps_time, last_vision_time
     now = time.time()
     last_live_packet_time = now
     operating_mode = "LIVE_HARDWARE"
@@ -99,28 +103,50 @@ async def ingest_sensor_data(data: SensorIngestPayload):
     if data.vision is None:
         data.vision = VisionPayload()
 
-    # Extract front distance if sent directly by ESP32 (e.g. distance_cm, distance, dist)
-    if data.ultrasonic.front is None:
-        candidate_dist = data.distance_cm if data.distance_cm is not None else (
-            data.distance if data.distance is not None else (
-                data.dist if data.dist is not None else data.front
-            )
-        )
-        if candidate_dist is not None:
-            data.ultrasonic.front = candidate_dist
+    # Extract front distance if sent directly by ESP32 (e.g. distance_cm, distance, dist, front)
+    has_raw_ultrasonic = False
+    candidate_dist = None
+    if data.distance_cm is not None:
+        try:
+            candidate_dist = float(data.distance_cm) / 100.0  # cm to meters
+            has_raw_ultrasonic = True
+        except (ValueError, TypeError):
+            pass
+    elif data.distance is not None:
+        candidate_dist = data.distance
+        has_raw_ultrasonic = True
+    elif data.dist is not None:
+        candidate_dist = data.dist
+        has_raw_ultrasonic = True
+    elif data.front is not None:
+        candidate_dist = data.front
+        has_raw_ultrasonic = True
+    elif data.ultrasonic.front is not None:
+        candidate_dist = data.ultrasonic.front
+        has_raw_ultrasonic = True
 
-    if packet_counter % 10 == 1:
-        print("[PI INGEST RAW DATA]", data.model_dump())
+    if candidate_dist is not None:
+        data.ultrasonic.front = candidate_dist
+
+    if has_raw_ultrasonic or data.lat is not None or (data.gps and data.gps.lat is not None):
+        print(f"[HARDWARE INGEST] dist: {candidate_dist} | lat: {data.lat or (data.gps.lat if data.gps else None)}")
     
     validation_warnings = []
 
     # 1. GPS Integrity Checks (with persistent merge)
     prev_gps = live_hardware_state.get("gps", {}) if live_hardware_state else {}
-    lat = data.gps.lat if (data.gps and data.gps.lat is not None) else data.lat
-    lon = data.gps.lon if (data.gps and data.gps.lon is not None) else data.lon
-    if lat is None and prev_gps.get("lat") is not None:
-        lat = prev_gps.get("lat")
-        lon = prev_gps.get("lon")
+    has_raw_gps = (data.gps and data.gps.lat is not None) or data.lat is not None
+    if has_raw_gps:
+        lat = data.gps.lat if (data.gps and data.gps.lat is not None) else data.lat
+        lon = data.gps.lon if (data.gps and data.gps.lon is not None) else data.lon
+        last_gps_time = now
+    else:
+        if (now - last_gps_time) <= 6.0 and prev_gps.get("lat") is not None:
+            lat = prev_gps.get("lat")
+            lon = prev_gps.get("lon")
+        else:
+            lat = None
+            lon = None
 
     if lat is not None and not (-90.0 <= lat <= 90.0):
         validation_warnings.append(f"GPS Latitude {lat} out of physical bounds [-90, 90]")
@@ -146,8 +172,8 @@ async def ingest_sensor_data(data: SensorIngestPayload):
             v = float(val)
             if v != v or v <= 0:  # NaN or zero/negative
                 return None
-            # Auto-convert cm to meters if > 30 cm
-            meter_val = v / 100.0 if v > 30.0 else v
+            # If value is > 10.0, it is in centimeters (HC-SR04 max range is ~400cm = 4m)
+            meter_val = v / 100.0 if v > 10.0 else v
             if meter_val < 0.02 or meter_val > 25.0:
                 validation_warnings.append(f"Ultrasonic {label} {val}m outside detection range")
                 return None
@@ -156,10 +182,16 @@ async def ingest_sensor_data(data: SensorIngestPayload):
             return None
 
     # Only pass physical sensor data if the channel is physically equipped on the demo rig
-    front_dist = clean_distance(data.ultrasonic.front, "front") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_front", True) else None
-    # Merge previous front distance if this packet came from vision runner without ultrasonic
-    if front_dist is None and prev_us.get("front") is not None:
-        front_dist = prev_us.get("front")
+    if has_raw_ultrasonic and data.ultrasonic.front is not None:
+        front_dist = clean_distance(data.ultrasonic.front, "front") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_front", True) else None
+        if front_dist is not None:
+            last_ultrasonic_time = now
+    else:
+        # If camera packet arrived without ultrasonic, preserve last ultrasonic reading for up to 4.5s
+        if (now - last_ultrasonic_time) <= 4.5 and prev_us.get("front") is not None:
+            front_dist = prev_us.get("front")
+        else:
+            front_dist = None
 
     rear_dist = clean_distance(data.ultrasonic.rear, "rear") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_rear", False) else None
     left_dist = clean_distance(data.ultrasonic.left, "left") if PHYSICAL_HARDWARE_EQUIPPED.get("ultrasonic_left", False) else None

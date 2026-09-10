@@ -70,6 +70,10 @@ class WebSocketClient {
     }, 3000);
   }
 
+  public getIsConnected(): boolean {
+    return this.isConnected;
+  }
+
   public send(msg: Record<string, unknown>) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));

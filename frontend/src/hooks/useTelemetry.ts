@@ -25,7 +25,8 @@ export function useTelemetry() {
       isPiActiveRef.current = connected;
       setPiStatus(piHardwareClient.getStatus());
 
-      if (connected && piTelemetry) {
+      // Only use direct browser polling if the backend WebSocket is NOT connected
+      if (connected && piTelemetry && !wsClient.getIsConnected()) {
         setTelemetry(piTelemetry);
         setOperatingModeState('LIVE_HARDWARE');
         recordHistory(piTelemetry);
@@ -48,8 +49,6 @@ export function useTelemetry() {
           lastRiskRef.current = piTelemetry.risk.risk_level;
         }
       }
-      // If direct browser polling failed, do NOT overwrite WebSocket telemetry!
-      // The backend WebSocket stream cleanly provides live or verified offline state.
     });
 
     return () => {
@@ -58,7 +57,7 @@ export function useTelemetry() {
     };
   }, []);
 
-  // 2. Connect WebSocket to FastAPI backend on mount
+  // 2. Connect WebSocket to FastAPI backend on mount (PRIMARY SOURCE OF TRUTH)
   useEffect(() => {
     wsClient.connect();
 
@@ -67,31 +66,29 @@ export function useTelemetry() {
     });
 
     const unsubData = wsClient.subscribeData((data) => {
-      // If direct browser polling is not active, use backend WebSocket
-      if (!isPiActiveRef.current) {
-        setTelemetry(data);
-        setOperatingModeState(data.mode as any);
-        if (data.mode === 'LIVE_HARDWARE' && data.online) {
-          recordHistory(data);
-        }
+      // Backend WebSocket fuses all physical sensors (ESP32 / Pi) + AI Vision
+      setTelemetry(data);
+      setOperatingModeState(data.mode as any);
+      if (data.mode === 'LIVE_HARDWARE' && data.online) {
+        recordHistory(data);
+      }
 
-        if (data.risk && data.risk.risk_level !== lastRiskRef.current) {
-          if (data.risk.risk_level === 'CRITICAL' || data.risk.risk_level === 'WARNING') {
-            const newAlert: AlertRecord = {
-              id: Date.now(),
-              timestamp: data.timestamp,
-              severity: data.risk.risk_level,
-              message: data.risk.hazard_summary,
-              category: 'COLLISION_RISK',
-              sms_sent: data.risk.emergency_sms_required,
-              sms_details: data.risk.emergency_sms_required
-                ? `4G SMS dispatched via ${data.gsm?.carrier || '4G LTE Private Net'} to Mine Safety Control`
-                : undefined,
-            };
-            setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
-          }
-          lastRiskRef.current = data.risk.risk_level;
+      if (data.risk && data.risk.risk_level !== lastRiskRef.current) {
+        if (data.risk.risk_level === 'CRITICAL' || data.risk.risk_level === 'WARNING') {
+          const newAlert: AlertRecord = {
+            id: Date.now(),
+            timestamp: data.timestamp,
+            severity: data.risk.risk_level,
+            message: data.risk.hazard_summary,
+            category: 'COLLISION_RISK',
+            sms_sent: data.risk.emergency_sms_required,
+            sms_details: data.risk.emergency_sms_required
+              ? `4G SMS dispatched via ${data.gsm?.carrier || '4G LTE Private Net'} to Mine Safety Control`
+              : undefined,
+          };
+          setAlerts((prev) => [newAlert, ...prev.slice(0, 24)]);
         }
+        lastRiskRef.current = data.risk.risk_level;
       }
     });
 
